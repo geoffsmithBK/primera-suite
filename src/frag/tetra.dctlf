@@ -1,0 +1,62 @@
+
+// ============================================================
+// Tetrahedral interpolation
+// ============================================================
+
+__DEVICE__ float3 tetra_corner(float3 identity, float hue, float density) {
+    float angle = hue * 1.047198f;
+    float mean = (identity.x + identity.y + identity.z) / 3.0f;
+    float cx = identity.x - mean;
+    float cy = identity.y - mean;
+    float cz = identity.z - mean;
+
+    float cos_a = _cosf(angle);
+    float sin_a = _sinf(angle);
+    float k = 0.57735026919f;
+
+    float rx = cx * cos_a + k * (cz - cy) * sin_a;
+    float ry = cy * cos_a + k * (cx - cz) * sin_a;
+    float rz = cz * cos_a + k * (cy - cx) * sin_a;
+
+    return make_float3(rx + mean + density, ry + mean + density, rz + mean + density);
+}
+
+__DEVICE__ float3 tetra_interp(float r, float g, float b,
+                                float3 rc, float3 gc, float3 bc,
+                                float3 cc, float3 mc, float3 yc) {
+    float3 out;
+
+    if (r >= g && r >= b) {
+        if (g >= b) {
+            out.x = r * rc.x + g * (yc.x - rc.x) + b * (1.0f - yc.x);
+            out.y = r * rc.y + g * (yc.y - rc.y) + b * (1.0f - yc.y);
+            out.z = r * rc.z + g * (yc.z - rc.z) + b * (1.0f - yc.z);
+        } else {
+            out.x = r * rc.x + b * (mc.x - rc.x) + g * (1.0f - mc.x);
+            out.y = r * rc.y + b * (mc.y - rc.y) + g * (1.0f - mc.y);
+            out.z = r * rc.z + b * (mc.z - rc.z) + g * (1.0f - mc.z);
+        }
+    } else if (g >= r && g >= b) {
+        if (r >= b) {
+            out.x = g * gc.x + r * (yc.x - gc.x) + b * (1.0f - yc.x);
+            out.y = g * gc.y + r * (yc.y - gc.y) + b * (1.0f - yc.y);
+            out.z = g * gc.z + r * (yc.z - gc.z) + b * (1.0f - yc.z);
+        } else {
+            out.x = g * gc.x + b * (cc.x - gc.x) + r * (1.0f - cc.x);
+            out.y = g * gc.y + b * (cc.y - gc.y) + r * (1.0f - cc.y);
+            out.z = g * gc.z + b * (cc.z - gc.z) + r * (1.0f - cc.z);
+        }
+    } else {
+        if (r >= g) {
+            out.x = b * bc.x + r * (mc.x - bc.x) + g * (1.0f - mc.x);
+            out.y = b * bc.y + r * (mc.y - bc.y) + g * (1.0f - mc.y);
+            out.z = b * bc.z + r * (mc.z - bc.z) + g * (1.0f - mc.z);
+        } else {
+            out.x = b * bc.x + g * (cc.x - bc.x) + r * (1.0f - cc.x);
+            out.y = b * bc.y + g * (cc.y - bc.y) + r * (1.0f - cc.y);
+            out.z = b * bc.z + g * (cc.z - bc.z) + r * (1.0f - cc.z);
+        }
+    }
+
+    return out;
+}

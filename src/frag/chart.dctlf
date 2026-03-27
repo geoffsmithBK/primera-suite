@@ -1,0 +1,184 @@
+
+// ============================================================
+// Stop chart (bitmap font + renderer)
+// Requires: encode()
+// ============================================================
+
+__DEVICE__ int glyph_row(int ch, int row) {
+    switch (ch) {
+        case '0': return (row==0||row==6)?31:27;
+        case '1': return row==1?14:row==6?31:6;
+        case '2': return (row==0||row==3||row==6)?31:row<3?3:24;
+        case '3': return (row==0||row==3||row==6)?31:3;
+        case '4': return row<=2?27:row==3?31:3;
+        case '5': return (row==0||row==3||row==6)?31:row<3?24:3;
+        case '6': return (row==0||row==3||row==6)?31:row<3?24:27;
+        case '7': return row==0?31:row<=2?3:6;
+        case '8': return (row==0||row==3||row==6)?31:27;
+        case '9': return (row==0||row==3||row==6)?31:row<3?27:3;
+        case 'A': return (row==0||row==3)?31:27;
+        case 'C': return (row==0||row==6)?31:24;
+        case 'D': return (row==0||row==6)?30:27;
+        case 'E': return (row==0||row==3||row==6)?31:24;
+        case 'G': return (row==0||row==6)?31:row<=2?24:27;
+        case 'I': return (row==0||row==6)?31:6;
+        case 'L': return row==6?31:24;
+        case 'N': return row==0||row==6?17:row<=2?25:row==3?21:19;
+        case 'O': return (row==0||row==6)?31:27;
+        case 'P': return (row==0||row==3)?31:row<3?27:24;
+        case 'R': return (row==0||row==3)?31:row<3?27:row==4?26:25;
+        case 'S': return (row==0||row==3||row==6)?31:row<3?24:3;
+        case 'T': return row==0?31:6;
+        case 'Y': return row<=1?27:row==2?14:6;
+        case '=': return (row==2||row==4)?31:0;
+        case '.': return row>=5?12:0;
+        default:  return 0;
+    }
+}
+
+__DEVICE__ int tf_name_char(int tf, int pos) {
+    switch (tf) {
+        case 0:
+            if (pos==0) return 'L'; if (pos==1) return 'O'; if (pos==2) return 'G';
+            if (pos==3) return 'C'; if (pos==4) return '3'; return 0;
+        case 1:
+            if (pos==0) return 'L'; if (pos==1) return 'O'; if (pos==2) return 'G';
+            if (pos==3) return 'C'; if (pos==4) return '4'; return 0;
+        case 2:
+            if (pos==0) return 'R'; if (pos==1) return 'E'; if (pos==2) return 'D';
+            if (pos==3) return 'L'; if (pos==4) return 'O'; if (pos==5) return 'G';
+            if (pos==6) return '3'; if (pos==7) return 'G'; if (pos==8) return '1';
+            if (pos==9) return '0'; return 0;
+        case 3:
+            if (pos==0) return 'S'; if (pos==1) return 'L'; if (pos==2) return 'O';
+            if (pos==3) return 'G'; if (pos==4) return '3'; return 0;
+        case 4:
+            if (pos==0) return 'A'; if (pos==1) return 'C'; if (pos==2) return 'E';
+            if (pos==3) return 'S'; if (pos==4) return 'C'; if (pos==5) return 'C';
+            if (pos==6) return 'T'; return 0;
+        case 5:
+            if (pos==0) return 'D'; if (pos==1) return 'I'; return 0;
+        case 6:
+            if (pos==0) return 'C'; if (pos==1) return 'I'; if (pos==2) return 'N';
+            if (pos==3) return 'E'; if (pos==4) return 'O'; if (pos==5) return 'N';
+            return 0;
+        default: return 0;
+    }
+}
+
+__DEVICE__ int tf_name_len(int tf) {
+    switch (tf) {
+        case 0: return 5;  case 1: return 5;  case 2: return 10;
+        case 3: return 5;  case 4: return 7;  case 5: return 2;
+        case 6: return 6;  default: return 0;
+    }
+}
+
+__DEVICE__ float3 render_chart(int p_Width, int p_Height, int p_X, int p_Y, int tf) {
+    int px = p_X;
+    int py = p_Y;
+    float x_norm = (float)px / (float)p_Width;
+    float y_norm = (float)py / (float)p_Height;
+
+    // Upper half: 17 stop columns (-8 to +8)
+    if (y_norm < 0.5f) {
+        int num_cols = 17;
+        int col = (int)(x_norm * (float)num_cols);
+        if (col >= num_cols) col = num_cols - 1;
+        int stop = col - 8;
+        float lin = 0.18f * _powf(2.0f, (float)stop);
+        float val = encode(lin, tf);
+        val = _fmaxf(0.0f, _fminf(val, 1.0f));
+        return make_float3(val, val, val);
+    }
+
+    // Lower half: gradient + text overlay
+    float val = x_norm;
+    float mid_grey = encode(0.18f, tf);
+
+    int cell = p_Height / 100;
+    if (cell < 2) cell = 2;
+
+    int mg_d1 = (int)(mid_grey * 10.0f) % 10;
+    int mg_d2 = (int)(mid_grey * 100.0f) % 10;
+    int mg_d3 = (int)(mid_grey * 1000.0f + 0.5f) % 10;
+
+    int char_w = 6 * cell;
+    int char_h = 7 * cell;
+    int line_gap = 3 * cell;
+    int pad = 2 * cell;
+
+    int name_len = tf_name_len(tf);
+    int line2_len = 15;
+
+    int lower_top = p_Height / 2;
+    int lower_h = p_Height - lower_top;
+    int total_text_h = char_h * 2 + line_gap;
+    int line1_top = lower_top + (lower_h - total_text_h) / 2;
+    int line2_top = line1_top + char_h + line_gap;
+
+    int line1_left = (p_Width - name_len * char_w + cell) / 2;
+    int line2_left = (p_Width - line2_len * char_w + cell) / 2;
+
+    int box_l = (line1_left < line2_left ? line1_left : line2_left) - pad;
+    int box_r = line1_left + name_len * char_w;
+    int box_r2 = line2_left + line2_len * char_w;
+    if (box_r2 > box_r) box_r = box_r2;
+    box_r += pad;
+    int box_t = line1_top - pad;
+    int box_b = line2_top + char_h + pad;
+
+    int in_box = (px >= box_l && px < box_r && py >= box_t && py < box_b) ? 1 : 0;
+    int text_hit = 0;
+
+    if (py >= line1_top && py < line1_top + char_h) {
+        int lx = px - line1_left;
+        if (lx >= 0 && lx < name_len * char_w) {
+            int ci = lx / char_w;
+            int cx = (lx % char_w) / cell;
+            int cy = (py - line1_top) / cell;
+            if (cx < 5) {
+                int ch = tf_name_char(tf, ci);
+                if (ch > 0) {
+                    int mask = glyph_row(ch, cy);
+                    if ((mask >> (4 - cx)) & 1) text_hit = 1;
+                }
+            }
+        }
+    }
+
+    if (text_hit == 0 && py >= line2_top && py < line2_top + char_h) {
+        int lx = px - line2_left;
+        if (lx >= 0 && lx < line2_len * char_w) {
+            int ci = lx / char_w;
+            int cx = (lx % char_w) / cell;
+            int cy = (py - line2_top) / cell;
+            if (cx < 5) {
+                int ch = 0;
+                switch (ci) {
+                    case 0: ch='1'; break; case 1: ch='8'; break;
+                    case 2: ch=' '; break; case 3: ch='G'; break;
+                    case 4: ch='R'; break; case 5: ch='A'; break;
+                    case 6: ch='Y'; break; case 7: ch=' '; break;
+                    case 8: ch='='; break; case 9: ch=' '; break;
+                    case 10: ch='0'; break; case 11: ch='.'; break;
+                    case 12: ch='0'+mg_d1; break;
+                    case 13: ch='0'+mg_d2; break;
+                    case 14: ch='0'+mg_d3; break;
+                }
+                if (ch > 32) {
+                    int mask = glyph_row(ch, cy);
+                    if ((mask >> (4 - cx)) & 1) text_hit = 1;
+                }
+            }
+        }
+    }
+
+    if (text_hit == 1) {
+        val = mid_grey + 0.12f;
+    } else if (in_box == 1) {
+        val = mid_grey;
+    }
+
+    return make_float3(val, val, val);
+}

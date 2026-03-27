@@ -1,0 +1,47 @@
+
+// ============================================================
+// Transform
+// ============================================================
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+
+    if (p_red_sat == 0.0f && p_yel_sat == 0.0f && p_grn_sat == 0.0f &&
+        p_cyn_sat == 0.0f && p_blu_sat == 0.0f && p_mag_sat == 0.0f &&
+        p_neg_sat >= 1.0f)
+        return make_float3(p_R, p_G, p_B);
+
+    float3 lab = rgb_to_oklab(p_R, p_G, p_B);
+    float L = lab.x, a = lab.y, ob = lab.z;
+
+    float C = _sqrtf(a * a + ob * ob);
+    float H = _atan2f(ob, a);
+    float L_orig = L;
+
+    float adj = p_red_sat * hue_weight(H, HUE_RED)
+              + p_yel_sat * hue_weight(H, HUE_YELLOW)
+              + p_grn_sat * hue_weight(H, HUE_GREEN)
+              + p_cyn_sat * hue_weight(H, HUE_CYAN)
+              + p_blu_sat * hue_weight(H, HUE_BLUE)
+              + p_mag_sat * hue_weight(H, HUE_MAGENTA);
+
+    if (adj != 0.0f) {
+        C = _fmaxf(C * (1.0f + adj), 0.0f);
+        L *= (1.0f - adj * p_density);
+    }
+
+    if (p_neg_sat < 1.0f) {
+        C *= p_neg_sat;
+    }
+
+    if (p_preserve_lum > 0.0f) {
+        L = L + p_preserve_lum * (L_orig - L);
+    }
+
+    a = C * _cosf(H);
+    ob = C * _sinf(H);
+
+    float3 rgb = oklab_to_rgb(L, a, ob);
+
+    float3 result = soft_squeeze(rgb);
+    return result;
+}

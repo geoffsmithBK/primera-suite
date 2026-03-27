@@ -1,0 +1,75 @@
+
+// ============================================================
+// Transfer functions: log -> linear
+// ============================================================
+
+__DEVICE__ float logc3_to_lin(float x) {
+    const float a = 5.555556f;
+    const float b = 0.052272f;
+    const float c = 0.247190f;
+    const float d = 0.385537f;
+    const float e = 5.367655f;
+    const float f = 0.092809f;
+    const float cut = 0.010591f;
+    const float ecf = e * cut + f;
+    return (x > ecf) ? (_powf(10.0f, (x - d) / c) - b) / a : (x - f) / e;
+}
+
+__DEVICE__ float logc4_to_lin(float x) {
+    const float a = (262144.0f - 16.0f) / 117.45f;
+    const float b = (1023.0f - 95.0f) / 1023.0f;
+    const float c = 95.0f / 1023.0f;
+    const float s = (7.0f * 0.6931471805599453f * _powf(2.0f, 7.0f - 14.0f * c / b)) / (a * b);
+    const float t = (_powf(2.0f, 14.0f * (-c / b) + 6.0f) - 64.0f) / a;
+    return (x >= 0.0f) ? (_powf(2.0f, 14.0f * ((x - c) / b) + 6.0f) - 64.0f) / a : x * s + t;
+}
+
+__DEVICE__ float redlog3g10_to_lin(float y) {
+    const float a = 0.224282f;
+    const float b = 155.975327f;
+    const float c = 0.01f;
+    const float g = 15.1927f;
+    return (y < 0.0f) ? (y / g) - c : (_powf(10.0f, y / a) - 1.0f) / b - c;
+}
+
+__DEVICE__ float slog3_to_lin(float x) {
+    const float cut = 171.2102946929f / 1023.0f;
+    if (x >= cut)
+        return _powf(10.0f, (x * 1023.0f - 420.0f) / 261.5f) * 0.19f - 0.01f;
+    else
+        return (x * 1023.0f - 95.0f) * 0.01125f / (171.2102946929f - 95.0f);
+}
+
+__DEVICE__ float acescct_to_lin(float x) {
+    const float cut = 0.155251141552511f;
+    const float slope = 10.5402377416545f;
+    const float offset = 0.0729055341958355f;
+    return (x > cut) ? _powf(2.0f, x * 17.52f - 9.72f) : (x - offset) / slope;
+}
+
+__DEVICE__ float di_to_lin(float x) {
+    const float A = 0.0075f;
+    const float B = 7.0f;
+    const float C = 0.07329248f;
+    const float M = 10.44426855f;
+    const float LOG_CUT = 0.02740668f;
+    return (x <= LOG_CUT) ? x / M : _powf(2.0f, x / C - B) - A;
+}
+
+__DEVICE__ float cineon_to_lin(float x) {
+    const float offset = 0.0108f;
+    return (_powf(10.0f, (x * 1023.0f - 685.0f) / 300.0f) - offset) / (1.0f - offset);
+}
+
+__DEVICE__ float decode(float x, int tf) {
+    switch (tf) {
+        case 0: return logc3_to_lin(x);
+        case 1: return logc4_to_lin(x);
+        case 2: return redlog3g10_to_lin(x);
+        case 3: return slog3_to_lin(x);
+        case 4: return acescct_to_lin(x);
+        case 5: return di_to_lin(x);
+        case 6: return cineon_to_lin(x);
+        default: return x;
+    }
+}

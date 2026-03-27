@@ -1,0 +1,43 @@
+
+// ============================================================
+// HSV conversion
+// ============================================================
+
+__DEVICE__ float3 rgb_to_hsv(float3 rgb) {
+    float r = rgb.x, g = rgb.y, b = rgb.z;
+    float cmax = _fmaxf(r, _fmaxf(g, b));
+    float cmin = _fminf(r, _fminf(g, b));
+    float delta = cmax - cmin;
+
+    float h = 0.0f;
+    if (delta > 0.0f) {
+        if (cmax == r)      h = (g - b) / delta;
+        else if (cmax == g) h = (b - r) / delta + 2.0f;
+        else                h = (r - g) / delta + 4.0f;
+        if (h < 0.0f) h += 6.0f;
+        h /= 6.0f;
+    }
+
+    float s = (cmax > 0.0f) ? delta / cmax : 0.0f;
+    return make_float3(h, s, cmax);
+}
+
+__DEVICE__ float3 hsv_to_rgb(float3 hsv) {
+    float h = hsv.x * 6.0f;
+    float s = hsv.y;
+    float v = hsv.z;
+
+    float c = v * s;
+    float x = c * (1.0f - _fabs(h - 2.0f * _floorf(h * 0.5f) - 1.0f));
+    float m = v - c;
+
+    float r, g, b;
+    if      (h < 1.0f) { r = c; g = x; b = 0.0f; }
+    else if (h < 2.0f) { r = x; g = c; b = 0.0f; }
+    else if (h < 3.0f) { r = 0.0f; g = c; b = x; }
+    else if (h < 4.0f) { r = 0.0f; g = x; b = c; }
+    else if (h < 5.0f) { r = x; g = 0.0f; b = c; }
+    else               { r = c; g = 0.0f; b = x; }
+
+    return make_float3(r + m, g + m, b + m);
+}

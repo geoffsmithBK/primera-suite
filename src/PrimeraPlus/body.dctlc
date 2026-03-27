@@ -1,0 +1,129 @@
+
+// ============================================================
+// Main Transform
+// ============================================================
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+
+    if (p_show_chart == 1) {
+        float3 chart = render_chart(p_Width, p_Height, p_X, p_Y, p_tf);
+        return chart;
+    }
+
+    float r = decode(p_R, p_tf);
+    float g = decode(p_G, p_tf);
+    float b = decode(p_B, p_tf);
+
+    float gain = _powf(2.0f, p_exposure);
+    r *= gain;
+    g *= gain;
+    b *= gain;
+
+    if (p_bp != 0.0f) {
+        float knee = 0.005f;
+        float bp = -p_bp;
+        r = soft_black_point(r, bp, knee);
+        g = soft_black_point(g, bp, knee);
+        b = soft_black_point(b, bp, knee);
+    }
+
+    r *= _powf(2.0f,  p_temp);
+    b *= _powf(2.0f, -p_temp);
+    g *= _powf(2.0f,  p_tint);
+
+    r = encode(r, p_tf);
+    g = encode(g, p_tf);
+    b = encode(b, p_tf);
+
+    if (p_contrast != 1.0f || p_pivot_offset != 0.0f) {
+        float pivot = encode(0.18f, p_tf) + p_pivot_offset;
+        pivot = _fmaxf(0.01f, _fminf(pivot, 0.99f));
+        float con = (p_contrast != 1.0f) ? p_contrast : 1.0f;
+        r = rolling_contrast(r, con, pivot);
+        g = rolling_contrast(g, con, pivot);
+        b = rolling_contrast(b, con, pivot);
+    }
+
+    if (p_shadows != 0.0f) {
+        float mid = encode(0.18f, p_tf);
+        float shd_gain = _powf(2.0f, p_shadows);
+        r = shadow_fill(r, shd_gain, mid);
+        g = shadow_fill(g, shd_gain, mid);
+        b = shadow_fill(b, shd_gain, mid);
+    }
+
+    if (p_highlights != 0.0f) {
+        float mid = encode(0.18f, p_tf);
+        float hi_gain = _powf(2.0f, p_highlights);
+        r = highlight_gain(r, hi_gain, mid);
+        g = highlight_gain(g, hi_gain, mid);
+        b = highlight_gain(b, hi_gain, mid);
+    }
+
+    if (p_high_soft > 0.0f) {
+        float mid = encode(0.18f, p_tf);
+        r = soft_highlight(r, p_high_soft, mid);
+        g = soft_highlight(g, p_high_soft, mid);
+        b = soft_highlight(b, p_high_soft, mid);
+    }
+
+    if (p_neg_sat < 1.0f && r >= 0.0f && g >= 0.0f && b >= 0.0f) {
+        float luma_before = luminance(r, g, b);
+        float luma = luma_before;
+        r = luma + (r - luma) * p_neg_sat;
+        g = luma + (g - luma) * p_neg_sat;
+        b = luma + (b - luma) * p_neg_sat;
+
+        if (p_preserve_lum == 1) {
+            float luma_after = luminance(r, g, b);
+            if (luma_after > 0.0f && luma_before > 0.0f) {
+                float ratio = luma_before / luma_after;
+                r *= ratio;
+                g *= ratio;
+                b *= ratio;
+            }
+        }
+    }
+
+    if (p_pos_sat > 0.0f && r >= 0.0f && g >= 0.0f && b >= 0.0f) {
+        float luma_before = luminance(r, g, b);
+        float3 hsv = rgb_to_hsv(make_float3(r, g, b));
+        hsv.y *= _powf(2.0f, p_pos_sat);
+        hsv.y = _fminf(hsv.y, 1.0f);
+        float3 rgb_sat = hsv_to_rgb(hsv);
+        r = rgb_sat.x;
+        g = rgb_sat.y;
+        b = rgb_sat.z;
+
+        if (p_preserve_lum == 1) {
+            float luma_after = luminance(r, g, b);
+            if (luma_after > 0.0f && luma_before > 0.0f) {
+                float ratio = luma_before / luma_after;
+                r *= ratio;
+                g *= ratio;
+                b *= ratio;
+            }
+        }
+    }
+
+    // Per-color hue and density: tetrahedral interpolation in log space
+    if (r >= 0.0f && g >= 0.0f && b >= 0.0f &&
+        (p_red_hue != 0.0f || p_red_den != 0.0f || p_grn_hue != 0.0f || p_grn_den != 0.0f ||
+         p_blu_hue != 0.0f || p_blu_den != 0.0f || p_cyn_hue != 0.0f || p_cyn_den != 0.0f ||
+         p_mag_hue != 0.0f || p_mag_den != 0.0f || p_yel_hue != 0.0f || p_yel_den != 0.0f)) {
+
+        float3 rc = tetra_corner(make_float3(1.0f, 0.0f, 0.0f), p_red_hue, p_red_den);
+        float3 gc = tetra_corner(make_float3(0.0f, 1.0f, 0.0f), p_grn_hue, p_grn_den);
+        float3 bc = tetra_corner(make_float3(0.0f, 0.0f, 1.0f), p_blu_hue, p_blu_den);
+        float3 cc = tetra_corner(make_float3(0.0f, 1.0f, 1.0f), p_cyn_hue, p_cyn_den);
+        float3 mc = tetra_corner(make_float3(1.0f, 0.0f, 1.0f), p_mag_hue, p_mag_den);
+        float3 yc = tetra_corner(make_float3(1.0f, 1.0f, 0.0f), p_yel_hue, p_yel_den);
+
+        float3 result = tetra_interp(r, g, b, rc, gc, bc, cc, mc, yc);
+        r = result.x;
+        g = result.y;
+        b = result.z;
+    }
+
+    return make_float3(r, g, b);
+}

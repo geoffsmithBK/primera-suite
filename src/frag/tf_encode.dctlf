@@ -1,0 +1,75 @@
+
+// ============================================================
+// Transfer functions: linear -> log
+// ============================================================
+
+__DEVICE__ float lin_to_logc3(float x) {
+    const float a = 5.555556f;
+    const float b = 0.052272f;
+    const float c = 0.247190f;
+    const float d = 0.385537f;
+    const float e = 5.367655f;
+    const float f = 0.092809f;
+    const float cut = 0.010591f;
+    return (x > cut) ? c * _log10f(a * x + b) + d : e * x + f;
+}
+
+__DEVICE__ float lin_to_logc4(float x) {
+    const float a = (262144.0f - 16.0f) / 117.45f;
+    const float b = (1023.0f - 95.0f) / 1023.0f;
+    const float c = 95.0f / 1023.0f;
+    const float s = (7.0f * 0.6931471805599453f * _powf(2.0f, 7.0f - 14.0f * c / b)) / (a * b);
+    const float t = (_powf(2.0f, 14.0f * (-c / b) + 6.0f) - 64.0f) / a;
+    return (x >= t) ? (_log2f(a * x + 64.0f) - 6.0f) / 14.0f * b + c : (x - t) / s;
+}
+
+__DEVICE__ float lin_to_redlog3g10(float x) {
+    const float a = 0.224282f;
+    const float b = 155.975327f;
+    const float c = 0.01f;
+    const float g = 15.1927f;
+    float xc = x + c;
+    return (xc < 0.0f) ? xc * g : a * _log10f(xc * b + 1.0f);
+}
+
+__DEVICE__ float lin_to_slog3(float x) {
+    const float cut = 0.01125f;
+    if (x >= cut)
+        return (420.0f + _log10f((x + 0.01f) / 0.19f) * 261.5f) / 1023.0f;
+    else
+        return (x * (171.2102946929f - 95.0f) / 0.01125f + 95.0f) / 1023.0f;
+}
+
+__DEVICE__ float lin_to_acescct(float x) {
+    const float cut = 0.0078125f;
+    const float slope = 10.5402377416545f;
+    const float offset = 0.0729055341958355f;
+    return (x > cut) ? (_log2f(x) + 9.72f) / 17.52f : slope * x + offset;
+}
+
+__DEVICE__ float lin_to_di(float x) {
+    const float A = 0.0075f;
+    const float B = 7.0f;
+    const float C = 0.07329248f;
+    const float M = 10.44426855f;
+    const float LIN_CUT = 0.00262409f;
+    return (x <= LIN_CUT) ? x * M : C * (_log2f(x + A) + B);
+}
+
+__DEVICE__ float lin_to_cineon(float x) {
+    const float offset = 0.0108f;
+    return (_log10f(x * (1.0f - offset) + offset) * 300.0f + 685.0f) / 1023.0f;
+}
+
+__DEVICE__ float encode(float x, int tf) {
+    switch (tf) {
+        case 0: return lin_to_logc3(x);
+        case 1: return lin_to_logc4(x);
+        case 2: return lin_to_redlog3g10(x);
+        case 3: return lin_to_slog3(x);
+        case 4: return lin_to_acescct(x);
+        case 5: return lin_to_di(x);
+        case 6: return lin_to_cineon(x);
+        default: return x;
+    }
+}

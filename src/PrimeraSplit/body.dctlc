@@ -1,0 +1,211 @@
+
+// ============================================================
+// Subtractive split toning
+// ============================================================
+
+__DEVICE__ float smooth_step(float edge0, float edge1, float x) {
+    float t = _clampf((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+__DEVICE__ float calculate_subtractive_impact(float3 rgb_adj, float3 cmy_adj) {
+    float total_reduction = 0.0f;
+
+    total_reduction += _fmaxf(0.0f, rgb_adj.x) * 0.5f;
+    total_reduction += _fmaxf(0.0f, rgb_adj.y) * 0.5f;
+    total_reduction += _fmaxf(0.0f, rgb_adj.z) * 0.5f;
+
+    total_reduction += _fmaxf(0.0f, -rgb_adj.x) * 0.33f;
+    total_reduction += _fmaxf(0.0f, -rgb_adj.y) * 0.33f;
+    total_reduction += _fmaxf(0.0f, -rgb_adj.z) * 0.33f;
+
+    total_reduction += _fmaxf(0.0f, cmy_adj.x) * 0.33f;
+    total_reduction += _fmaxf(0.0f, cmy_adj.y) * 0.33f;
+    total_reduction += _fmaxf(0.0f, cmy_adj.z) * 0.33f;
+
+    total_reduction += _fmaxf(0.0f, -cmy_adj.x) * 0.5f;
+    total_reduction += _fmaxf(0.0f, -cmy_adj.y) * 0.5f;
+    total_reduction += _fmaxf(0.0f, -cmy_adj.z) * 0.5f;
+
+    return total_reduction;
+}
+
+__DEVICE__ float calculate_luminance_compensation(float subtractive_impact) {
+    if (subtractive_impact <= 0.0f) return 1.0f;
+    float compensation = 1.0f + (subtractive_impact * 2.0f);
+    return _clampf(compensation, 1.0f, 2.0f);
+}
+
+__DEVICE__ float3 apply_subtractive_adjustment(float3 rgb, float3 rgb_adjustment, float3 cmy_adjustment) {
+    float3 result = rgb;
+
+    if (rgb_adjustment.x > 0.0f) {
+        result.y *= (1.0f - rgb_adjustment.x);
+        result.z *= (1.0f - rgb_adjustment.x);
+    } else if (rgb_adjustment.x < 0.0f) {
+        result.x *= (1.0f + rgb_adjustment.x);
+    }
+
+    if (rgb_adjustment.y > 0.0f) {
+        result.x *= (1.0f - rgb_adjustment.y);
+        result.z *= (1.0f - rgb_adjustment.y);
+    } else if (rgb_adjustment.y < 0.0f) {
+        result.y *= (1.0f + rgb_adjustment.y);
+    }
+
+    if (rgb_adjustment.z > 0.0f) {
+        result.x *= (1.0f - rgb_adjustment.z);
+        result.y *= (1.0f - rgb_adjustment.z);
+    } else if (rgb_adjustment.z < 0.0f) {
+        result.z *= (1.0f + rgb_adjustment.z);
+    }
+
+    if (cmy_adjustment.x > 0.0f) {
+        result.x *= (1.0f - cmy_adjustment.x);
+    } else if (cmy_adjustment.x < 0.0f) {
+        result.y *= (1.0f + cmy_adjustment.x);
+        result.z *= (1.0f + cmy_adjustment.x);
+    }
+
+    if (cmy_adjustment.y > 0.0f) {
+        result.y *= (1.0f - cmy_adjustment.y);
+    } else if (cmy_adjustment.y < 0.0f) {
+        result.x *= (1.0f + cmy_adjustment.y);
+        result.z *= (1.0f + cmy_adjustment.y);
+    }
+
+    if (cmy_adjustment.z > 0.0f) {
+        result.z *= (1.0f - cmy_adjustment.z);
+    } else if (cmy_adjustment.z < 0.0f) {
+        result.x *= (1.0f + cmy_adjustment.z);
+        result.y *= (1.0f + cmy_adjustment.z);
+    }
+
+    return result;
+}
+
+__DEVICE__ float3 draw_curve_overlay(float3 rgb, int p_X, int p_Y, int p_Width, int p_Height, float pivot_val, float transition_val) {
+    float x_norm = (float)p_X / (float)p_Width;
+    float y_norm = 1.0f - (float)p_Y / (float)p_Height;
+
+    float shadow_edge = pivot_val - transition_val * 0.5f;
+    float highlight_edge = pivot_val + transition_val * 0.5f;
+
+    float shadow_weight = 1.0f - smooth_step(shadow_edge, highlight_edge, x_norm);
+    float highlight_weight = smooth_step(shadow_edge, highlight_edge, x_norm);
+
+    float curve_thickness = 0.003f;
+
+    float shadow_curve_y = 0.7f + shadow_weight * 0.2f;
+    if (_fabs(y_norm - shadow_curve_y) < curve_thickness) {
+        rgb = _mix(rgb, make_float3(1.0f, 0.3f, 0.3f), 0.7f);
+    }
+
+    float highlight_curve_y = 0.3f + highlight_weight * 0.2f;
+    if (_fabs(y_norm - highlight_curve_y) < curve_thickness) {
+        rgb = _mix(rgb, make_float3(0.3f, 0.5f, 1.0f), 0.7f);
+    }
+
+    float pivot_x = pivot_val;
+    if (_fabs(x_norm - pivot_x) < curve_thickness) {
+        rgb = _mix(rgb, make_float3(1.0f, 1.0f, 0.3f), 0.5f);
+    }
+
+    return rgb;
+}
+
+// ============================================================
+// Main Transform
+// ============================================================
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+
+    float effective_pivot = encode(0.18f, p_tf) + pivot;
+
+    if (p_show_chart == 1) {
+        float3 chart = render_chart(p_Width, p_Height, p_X, p_Y, p_tf);
+        return chart;
+    }
+
+    float3 rgb = make_float3(p_R, p_G, p_B);
+
+    float width = (float)p_Width;
+    float height = (float)p_Height;
+    float X = (float)p_X;
+    float Y = height - (float)p_Y;
+    float3 ramp = make_float3(X / width, X / width, X / width);
+
+    float luma = luminance_dwg(rgb);
+
+    float shadow_edge = effective_pivot - transition * 0.5f;
+    float highlight_edge = effective_pivot + transition * 0.5f;
+
+    float shadow_weight = 1.0f - smooth_step(shadow_edge, highlight_edge, luma);
+    float highlight_weight = smooth_step(shadow_edge, highlight_edge, luma);
+
+    float3 shadow_rgb_adj = make_float3(shadow_red, shadow_green, shadow_blue);
+    float3 shadow_cmy_adj = make_float3(shadow_cyan, shadow_magenta, shadow_yellow);
+    float3 highlight_rgb_adj = make_float3(highlight_red, highlight_green, highlight_blue);
+    float3 highlight_cmy_adj = make_float3(highlight_cyan, highlight_magenta, highlight_yellow);
+
+    float3 final_shadow_rgb = shadow_rgb_adj * shadow_weight;
+    float3 final_shadow_cmy = shadow_cmy_adj * shadow_weight;
+    float3 final_highlight_rgb = highlight_rgb_adj * highlight_weight;
+    float3 final_highlight_cmy = highlight_cmy_adj * highlight_weight;
+
+    float3 combined_rgb_adj = final_shadow_rgb + final_highlight_rgb;
+    float3 combined_cmy_adj = final_shadow_cmy + final_highlight_cmy;
+
+    rgb = apply_subtractive_adjustment(rgb, combined_rgb_adj, combined_cmy_adj);
+
+    if (preserve_luminance > 0.0f) {
+        float subtractive_impact = calculate_subtractive_impact(combined_rgb_adj, combined_cmy_adj);
+        float compensation = calculate_luminance_compensation(subtractive_impact);
+        rgb *= 1.0f + (compensation - 1.0f) * preserve_luminance;
+    }
+
+    float ramp_luma = X / width;
+    float ramp_shadow_weight = 1.0f - smooth_step(shadow_edge, highlight_edge, ramp_luma);
+    float ramp_highlight_weight = smooth_step(shadow_edge, highlight_edge, ramp_luma);
+
+    float3 ramp_shadow_rgb = shadow_rgb_adj * ramp_shadow_weight;
+    float3 ramp_shadow_cmy = shadow_cmy_adj * ramp_shadow_weight;
+    float3 ramp_highlight_rgb = highlight_rgb_adj * ramp_highlight_weight;
+    float3 ramp_highlight_cmy = highlight_cmy_adj * ramp_highlight_weight;
+
+    float3 ramp_combined_rgb_adj = ramp_shadow_rgb + ramp_highlight_rgb;
+    float3 ramp_combined_cmy_adj = ramp_shadow_cmy + ramp_highlight_cmy;
+
+    ramp = apply_subtractive_adjustment(ramp, ramp_combined_rgb_adj, ramp_combined_cmy_adj);
+
+    if (preserve_luminance > 0.0f) {
+        float ramp_subtractive_impact = calculate_subtractive_impact(ramp_combined_rgb_adj, ramp_combined_cmy_adj);
+        float ramp_compensation = calculate_luminance_compensation(ramp_subtractive_impact);
+        ramp *= 1.0f + (ramp_compensation - 1.0f) * preserve_luminance;
+    }
+
+    if (visualize) {
+        rgb = draw_curve_overlay(rgb, p_X, p_Y, p_Width, p_Height, effective_pivot, transition);
+    }
+
+    if (opt_showcurve == 1) {
+        float overlayR = ramp.x >= (Y - 5.0f) / height && ramp.x <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+        float overlayG = ramp.y >= (Y - 5.0f) / height && ramp.y <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+        float overlayB = ramp.z >= (Y - 5.0f) / height && ramp.z <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+
+        rgb.x = overlayR == 0.0f ? rgb.x : overlayR;
+        rgb.y = overlayG == 0.0f ? rgb.y : overlayG;
+        rgb.z = overlayB == 0.0f ? rgb.z : overlayB;
+    }
+
+    if (opt_showramp == 1) {
+        float y_norm = 1.0f - (float)p_Y / (float)p_Height;
+        if (y_norm >= ramp_pos && y_norm <= ramp_pos + 0.15f) {
+            rgb.x = ramp.x;
+            rgb.y = ramp.y;
+            rgb.z = ramp.z;
+        }
+    }
+
+    return rgb;
+}

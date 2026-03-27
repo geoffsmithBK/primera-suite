@@ -1,0 +1,32 @@
+
+// ============================================================
+// Skintone protection
+// Requires: rgb_to_hsv()
+// ============================================================
+
+#define SKIN_HUE_CENTER (28.0f / 360.0f)
+#define SKIN_HUE_WIDTH  (28.0f / 360.0f)
+
+__DEVICE__ float hue_distance(float h1, float h2) {
+    float d = _fabs(h1 - h2);
+    return _fminf(d, 1.0f - d);
+}
+
+__DEVICE__ float smoothstep(float edge0, float edge1, float x) {
+    float t = _clampf((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+__DEVICE__ float skin_mask(float r, float g, float b) {
+    float3 hsv = rgb_to_hsv(make_float3(r, g, b));
+    float h = hsv.x;
+    float s = hsv.y;
+
+    if (s < 1e-6f || hsv.z < 1e-6f) return 0.0f;
+
+    float dist = hue_distance(h, SKIN_HUE_CENTER);
+    float hue_gate = 1.0f - smoothstep(0.0f, SKIN_HUE_WIDTH, dist);
+    float sat_gate = smoothstep(0.1f, 0.25f, s);
+
+    return hue_gate * sat_gate;
+}

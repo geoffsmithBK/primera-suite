@@ -1,0 +1,50 @@
+
+// ============================================================
+// Tone mapping primitives
+// ============================================================
+
+__DEVICE__ float soft_black_point(float x, float bp, float knee) {
+    if (x <= 0.0f) return x;
+    float corrected = x - bp;
+    if (corrected >= knee) return corrected;
+    return knee * _expf(corrected / knee - 1.0f);
+}
+
+__DEVICE__ float shadow_fill(float x, float gain, float mid) {
+    if (x <= 0.0f) return x;
+    if (x >= mid) return x;
+    float t = x / mid;
+    float blend = t * t * (3.0f - 2.0f * t);
+    return x * (gain + (1.0f - gain) * blend);
+}
+
+__DEVICE__ float highlight_gain(float x, float gain, float mid) {
+    if (x <= mid) return x;
+    if (x >= 1.0f) return x;
+    float t = (x - mid) / (1.0f - mid);
+    float blend = t * t * (3.0f - 2.0f * t);
+    return x * (1.0f + (gain - 1.0f) * blend);
+}
+
+__DEVICE__ float soft_highlight(float x, float amount, float mid) {
+    if (x <= 0.0f) return x;
+    float knee_amount = _fminf(amount, 1.0f);
+    float strength = 1.0f + _fmaxf(amount - 1.0f, 0.0f) * 2.0f;
+    float knee = 1.0f - knee_amount * (1.0f - mid);
+    if (x <= knee) return x;
+    float range = 1.0f - knee;
+    float t = (x - knee) / range * strength;
+    return knee + range * _tanhf(t) / strength;
+}
+
+__DEVICE__ float rolling_contrast(float x, float contrast, float pivot) {
+    if (x <= 0.0f) return x;
+    if (x >= 1.0f) return x;
+    if (x <= pivot) {
+        return _powf(x / pivot, contrast) * pivot;
+    } else {
+        float inv = 1.0f - x;
+        float inv_pivot = 1.0f - pivot;
+        return 1.0f - _powf(inv / inv_pivot, contrast) * inv_pivot;
+    }
+}

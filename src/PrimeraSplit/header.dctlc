@@ -1,0 +1,31 @@
+// PrimeraSplit v0.2.0
+// https://github.com/gsmith/Primera-DCTL
+
+// ============================================================
+// UI Parameters
+// ============================================================
+
+DEFINE_UI_PARAMS(p_tf, Transfer Function, DCTLUI_COMBO_BOX, 0, {TF_LOGC3, TF_LOGC4, TF_REDLOG3G10, TF_SLOG3, TF_ACESCCT, TF_DI, TF_CINEON}, {ARRI LogC3, ARRI LogC4, REDLog3G10, Sony S-Log3, ACEScct, DaVinci Intermediate, Cineon})
+DEFINE_UI_PARAMS(pivot, Mid-Grey Pivot, DCTLUI_SLIDER_FLOAT, 0.0, -0.2, 0.2, 0.001)
+DEFINE_UI_PARAMS(transition, Transition Softness, DCTLUI_SLIDER_FLOAT, 0.2, 0.01, 1.0, 0.001)
+
+DEFINE_UI_PARAMS(shadow_red, Shadow Red, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(shadow_green, Shadow Green, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(shadow_blue, Shadow Blue, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(shadow_cyan, Shadow Cyan, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(shadow_magenta, Shadow Magenta, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(shadow_yellow, Shadow Yellow, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+
+DEFINE_UI_PARAMS(highlight_red, Highlight Red, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(highlight_green, Highlight Green, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(highlight_blue, Highlight Blue, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(highlight_cyan, Highlight Cyan, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(highlight_magenta, Highlight Magenta, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(highlight_yellow, Highlight Yellow, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+
+DEFINE_UI_PARAMS(preserve_luminance, Preserve Luminance, DCTLUI_SLIDER_FLOAT, 0.8, 0.0, 1.0, 0.01)
+DEFINE_UI_PARAMS(opt_showcurve, Show Curve, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(visualize, Show Pivot, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(opt_showramp, Show Ramp, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(ramp_pos, Ramp Position, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 0.85, 0.01)
+DEFINE_UI_PARAMS(p_show_chart, Show Chart, DCTLUI_CHECK_BOX, 0)

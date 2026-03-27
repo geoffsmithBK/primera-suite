@@ -1,0 +1,21 @@
+
+// ============================================================
+// Soft gamut squeeze (tanh shoulder + exponential toe)
+// ============================================================
+
+__DEVICE__ float3 soft_squeeze(float3 rgb) {
+    float r = rgb.x, g = rgb.y, b = rgb.z;
+
+    const float knee = 0.9f;
+    const float range = 0.1f;
+    if (r > knee) { float t = (r - knee) / range; r = knee + range * _tanhf(t); }
+    if (g > knee) { float t = (g - knee) / range; g = knee + range * _tanhf(t); }
+    if (b > knee) { float t = (b - knee) / range; b = knee + range * _tanhf(t); }
+
+    const float toe = 0.1f;
+    if (r < toe) r = toe * _expf(r / toe - 1.0f);
+    if (g < toe) g = toe * _expf(g / toe - 1.0f);
+    if (b < toe) b = toe * _expf(b / toe - 1.0f);
+
+    return make_float3(r, g, b);
+}

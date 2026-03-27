@@ -1,0 +1,91 @@
+
+// ============================================================
+// Main Transform
+// ============================================================
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+
+    float r = p_R;
+    float g = p_G;
+    float b = p_B;
+
+    if (r < 0.0f || r > 1.0f || g < 0.0f || g > 1.0f || b < 0.0f || b > 1.0f)
+        return make_float3(r, g, b);
+
+    int hue_den_active = (p_red_hue != 0.0f || p_red_den != 0.0f || p_grn_hue != 0.0f || p_grn_den != 0.0f ||
+                          p_blu_hue != 0.0f || p_blu_den != 0.0f || p_cyn_hue != 0.0f || p_cyn_den != 0.0f ||
+                          p_mag_hue != 0.0f || p_mag_den != 0.0f || p_yel_hue != 0.0f || p_yel_den != 0.0f) ? 1 : 0;
+    int cinecolor_active = (p_cinecolor > 0.0f) ? 1 : 0;
+
+    if (!hue_den_active && !cinecolor_active)
+        return make_float3(r, g, b);
+
+    float luma_before = luminance(r, g, b);
+
+    if (hue_den_active) {
+        float3 rc = tetra_corner(make_float3(1.0f, 0.0f, 0.0f), p_red_hue, p_red_den);
+        float3 gc = tetra_corner(make_float3(0.0f, 1.0f, 0.0f), p_grn_hue, p_grn_den);
+        float3 bc = tetra_corner(make_float3(0.0f, 0.0f, 1.0f), p_blu_hue, p_blu_den);
+        float3 cc = tetra_corner(make_float3(0.0f, 1.0f, 1.0f), p_cyn_hue, p_cyn_den);
+        float3 mc = tetra_corner(make_float3(1.0f, 0.0f, 1.0f), p_mag_hue, p_mag_den);
+        float3 yc = tetra_corner(make_float3(1.0f, 1.0f, 0.0f), p_yel_hue, p_yel_den);
+
+        if (p_hard_squeeze == 1) {
+            rc.x = _fmaxf(0.0f, _fminf(rc.x, 1.0f)); rc.y = _fmaxf(0.0f, _fminf(rc.y, 1.0f)); rc.z = _fmaxf(0.0f, _fminf(rc.z, 1.0f));
+            gc.x = _fmaxf(0.0f, _fminf(gc.x, 1.0f)); gc.y = _fmaxf(0.0f, _fminf(gc.y, 1.0f)); gc.z = _fmaxf(0.0f, _fminf(gc.z, 1.0f));
+            bc.x = _fmaxf(0.0f, _fminf(bc.x, 1.0f)); bc.y = _fmaxf(0.0f, _fminf(bc.y, 1.0f)); bc.z = _fmaxf(0.0f, _fminf(bc.z, 1.0f));
+            cc.x = _fmaxf(0.0f, _fminf(cc.x, 1.0f)); cc.y = _fmaxf(0.0f, _fminf(cc.y, 1.0f)); cc.z = _fmaxf(0.0f, _fminf(cc.z, 1.0f));
+            mc.x = _fmaxf(0.0f, _fminf(mc.x, 1.0f)); mc.y = _fmaxf(0.0f, _fminf(mc.y, 1.0f)); mc.z = _fmaxf(0.0f, _fminf(mc.z, 1.0f));
+            yc.x = _fmaxf(0.0f, _fminf(yc.x, 1.0f)); yc.y = _fmaxf(0.0f, _fminf(yc.y, 1.0f)); yc.z = _fmaxf(0.0f, _fminf(yc.z, 1.0f));
+        }
+
+        float3 result = tetra_interp(r, g, b, rc, gc, bc, cc, mc, yc);
+        r = result.x;
+        g = result.y;
+        b = result.z;
+    }
+
+    if (p_preserve_lum == 1) {
+        float luma_after = luminance(r, g, b);
+        if (luma_after > 0.0f && luma_before > 0.0f) {
+            float ratio = luma_before / luma_after;
+            r *= ratio;
+            g *= ratio;
+            b *= ratio;
+        }
+    }
+
+    if (cinecolor_active) {
+        float cc_t = p_cinecolor;
+        float3 cc_rc = make_float3(1.0f, 0.0f, 0.0f);
+        float3 cc_gc = make_float3(0.0f, 1.0f, cc_t);
+        float3 cc_bc = make_float3(0.0f, 0.0f, 1.0f - cc_t);
+        float3 cc_cc = make_float3(0.0f, 1.0f, 1.0f);
+        float3 cc_mc = make_float3(1.0f, 0.0f, 1.0f - cc_t);
+        float3 cc_yc = make_float3(1.0f, 1.0f, cc_t);
+
+        float cr = _fmaxf(0.0f, _fminf(r, 1.0f));
+        float cg = _fmaxf(0.0f, _fminf(g, 1.0f));
+        float cb = _fmaxf(0.0f, _fminf(b, 1.0f));
+
+        float3 cc_result = tetra_interp(cr, cg, cb, cc_rc, cc_gc, cc_bc, cc_cc, cc_mc, cc_yc);
+
+        if (p_protect_skin == 1) {
+            float prot = skin_mask(cr, cg, cb);
+            cc_result.z = cc_result.z * (1.0f - prot) + cb * prot;
+        }
+
+        r = cc_result.x;
+        g = cc_result.y;
+        b = cc_result.z;
+    }
+
+    if (p_soft_squeeze == 1) {
+        float3 squeezed = soft_squeeze(make_float3(r, g, b));
+        r = squeezed.x;
+        g = squeezed.y;
+        b = squeezed.z;
+    }
+
+    return make_float3(r, g, b);
+}

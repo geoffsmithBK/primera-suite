@@ -1,0 +1,58 @@
+
+// ============================================================
+// OKLab / OKLCH
+// ============================================================
+
+#define HUE_RED      0.5444f
+#define HUE_YELLOW   1.9172f
+#define HUE_GREEN    2.4853f
+#define HUE_CYAN    -2.8570f
+#define HUE_BLUE    -1.6886f
+#define HUE_MAGENTA -0.5557f
+
+#define HUE_WIDTH    1.0471975512f
+#define PI           3.14159265f
+#define TWO_PI       6.28318530f
+
+__DEVICE__ float cbrtf_safe(float x) {
+    return _copysignf(_powf(_fabs(x), 0.333333333f), x);
+}
+
+__DEVICE__ float3 rgb_to_oklab(float r, float g, float b) {
+    float l = 0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b;
+    float m = 0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b;
+    float s = 0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b;
+
+    l = cbrtf_safe(l);
+    m = cbrtf_safe(m);
+    s = cbrtf_safe(s);
+
+    return make_float3(
+        0.2104542553f * l + 0.7936177850f * m - 0.0040720468f * s,
+        1.9779984951f * l - 2.4285922050f * m + 0.4505937099f * s,
+        0.0259040371f * l + 0.7827717662f * m - 0.8086757660f * s);
+}
+
+__DEVICE__ float3 oklab_to_rgb(float L, float a, float ob) {
+    float l = L + 0.3963377774f * a + 0.2158037573f * ob;
+    float m = L - 0.1055613458f * a - 0.0638541728f * ob;
+    float s = L - 0.0894841775f * a - 1.2914855480f * ob;
+
+    l = l * l * l;
+    m = m * m * m;
+    s = s * s * s;
+
+    return make_float3(
+         4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s,
+        -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s,
+        -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s);
+}
+
+__DEVICE__ float hue_weight(float h, float center) {
+    float d = h - center;
+    if (d > PI) d -= TWO_PI;
+    if (d < -PI) d += TWO_PI;
+    d = _fabs(d);
+    if (d >= HUE_WIDTH) return 0.0f;
+    return 0.5f * (1.0f + _cosf(d * PI / HUE_WIDTH));
+}
