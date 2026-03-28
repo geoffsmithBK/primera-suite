@@ -7,7 +7,7 @@ TOOLS   := Primera PrimeraPlus PrimeraHue PrimeraSat PrimeraSplit
 Primera_FRAGS      := luminance hsv tf_encode tf_decode chart tone
 PrimeraPlus_FRAGS  := luminance hsv tf_encode tf_decode chart tone tetra
 PrimeraHue_FRAGS   := luminance hsv skintone tetra soft_squeeze
-PrimeraSat_FRAGS   := oklab soft_squeeze
+PrimeraSat_FRAGS   := hsv oklab skintone soft_squeeze
 PrimeraSplit_FRAGS := luminance tf_encode chart
 
 LUT_DIR := /Library/Application Support/Blackmagic Design/DaVinci Resolve/LUT
