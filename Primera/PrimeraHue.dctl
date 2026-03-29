@@ -1,0 +1,285 @@
+// PrimeraHue v0.2.0
+// https://github.com/gsmith/Primera-DCTL
+
+// ============================================================
+// UI Parameters
+// ============================================================
+
+DEFINE_UI_PARAMS(p_red_hue, Red Hue, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_red_den, Red Density, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_yel_hue, Yellow Hue, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_yel_den, Yellow Density, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_grn_hue, Green Hue, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_grn_den, Green Density, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_cyn_hue, Cyan Hue, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_cyn_den, Cyan Density, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_blu_hue, Blue Hue, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_blu_den, Blue Density, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_mag_hue, Magenta Hue, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_mag_den, Magenta Density, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_preserve_lum, Preserve Luma, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(p_soft_squeeze, Soft 🗜️, DCTLUI_CHECK_BOX, 1)
+DEFINE_UI_PARAMS(p_hard_squeeze, Hard 🗜️, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(p_cinecolor, Cinecolor, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_protect_skin, Protect Skintones, DCTLUI_CHECK_BOX, 0)
+
+// ============================================================
+// Luminance
+// ============================================================
+
+__DEVICE__ float luminance(float r, float g, float b) {
+    return 0.2126f * r + 0.7152f * g + 0.0722f * b;
+}
+
+__DEVICE__ float luminance_dwg(float3 rgb) {
+    return 0.2627f * rgb.x + 0.6780f * rgb.y + 0.0593f * rgb.z;
+}
+
+// ============================================================
+// HSV conversion
+// ============================================================
+
+__DEVICE__ float3 rgb_to_hsv(float3 rgb) {
+    float r = rgb.x, g = rgb.y, b = rgb.z;
+    float cmax = _fmaxf(r, _fmaxf(g, b));
+    float cmin = _fminf(r, _fminf(g, b));
+    float delta = cmax - cmin;
+
+    float h = 0.0f;
+    if (delta > 0.0f) {
+        if (cmax == r)      h = (g - b) / delta;
+        else if (cmax == g) h = (b - r) / delta + 2.0f;
+        else                h = (r - g) / delta + 4.0f;
+        if (h < 0.0f) h += 6.0f;
+        h /= 6.0f;
+    }
+
+    float s = (cmax > 0.0f) ? delta / cmax : 0.0f;
+    return make_float3(h, s, cmax);
+}
+
+__DEVICE__ float3 hsv_to_rgb(float3 hsv) {
+    float h = hsv.x * 6.0f;
+    float s = hsv.y;
+    float v = hsv.z;
+
+    float c = v * s;
+    float x = c * (1.0f - _fabs(h - 2.0f * _floorf(h * 0.5f) - 1.0f));
+    float m = v - c;
+
+    float r, g, b;
+    if      (h < 1.0f) { r = c; g = x; b = 0.0f; }
+    else if (h < 2.0f) { r = x; g = c; b = 0.0f; }
+    else if (h < 3.0f) { r = 0.0f; g = c; b = x; }
+    else if (h < 4.0f) { r = 0.0f; g = x; b = c; }
+    else if (h < 5.0f) { r = x; g = 0.0f; b = c; }
+    else               { r = c; g = 0.0f; b = x; }
+
+    return make_float3(r + m, g + m, b + m);
+}
+
+// ============================================================
+// Skintone protection
+// Requires: rgb_to_hsv()
+// ============================================================
+
+#define SKIN_HUE_CENTER (28.0f / 360.0f)
+#define SKIN_HUE_WIDTH  (28.0f / 360.0f)
+
+__DEVICE__ float hue_distance(float h1, float h2) {
+    float d = _fabs(h1 - h2);
+    return _fminf(d, 1.0f - d);
+}
+
+__DEVICE__ float smoothstep(float edge0, float edge1, float x) {
+    float t = _clampf((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+__DEVICE__ float skin_mask(float r, float g, float b) {
+    float3 hsv = rgb_to_hsv(make_float3(r, g, b));
+    float h = hsv.x;
+    float s = hsv.y;
+
+    if (s < 1e-6f || hsv.z < 1e-6f) return 0.0f;
+
+    float dist = hue_distance(h, SKIN_HUE_CENTER);
+    float hue_gate = 1.0f - smoothstep(0.0f, SKIN_HUE_WIDTH, dist);
+    float sat_gate = smoothstep(0.1f, 0.25f, s);
+
+    return hue_gate * sat_gate;
+}
+
+// ============================================================
+// Tetrahedral interpolation
+// ============================================================
+
+__DEVICE__ float3 tetra_corner(float3 identity, float hue, float density) {
+    float angle = hue * 1.047198f;
+    float mean = (identity.x + identity.y + identity.z) / 3.0f;
+    float cx = identity.x - mean;
+    float cy = identity.y - mean;
+    float cz = identity.z - mean;
+
+    float cos_a = _cosf(angle);
+    float sin_a = _sinf(angle);
+    float k = 0.57735026919f;
+
+    float rx = cx * cos_a + k * (cz - cy) * sin_a;
+    float ry = cy * cos_a + k * (cx - cz) * sin_a;
+    float rz = cz * cos_a + k * (cy - cx) * sin_a;
+
+    return make_float3(rx + mean + density, ry + mean + density, rz + mean + density);
+}
+
+__DEVICE__ float3 tetra_interp(float r, float g, float b,
+                                float3 rc, float3 gc, float3 bc,
+                                float3 cc, float3 mc, float3 yc) {
+    float3 out;
+
+    if (r >= g && r >= b) {
+        if (g >= b) {
+            out.x = r * rc.x + g * (yc.x - rc.x) + b * (1.0f - yc.x);
+            out.y = r * rc.y + g * (yc.y - rc.y) + b * (1.0f - yc.y);
+            out.z = r * rc.z + g * (yc.z - rc.z) + b * (1.0f - yc.z);
+        } else {
+            out.x = r * rc.x + b * (mc.x - rc.x) + g * (1.0f - mc.x);
+            out.y = r * rc.y + b * (mc.y - rc.y) + g * (1.0f - mc.y);
+            out.z = r * rc.z + b * (mc.z - rc.z) + g * (1.0f - mc.z);
+        }
+    } else if (g >= r && g >= b) {
+        if (r >= b) {
+            out.x = g * gc.x + r * (yc.x - gc.x) + b * (1.0f - yc.x);
+            out.y = g * gc.y + r * (yc.y - gc.y) + b * (1.0f - yc.y);
+            out.z = g * gc.z + r * (yc.z - gc.z) + b * (1.0f - yc.z);
+        } else {
+            out.x = g * gc.x + b * (cc.x - gc.x) + r * (1.0f - cc.x);
+            out.y = g * gc.y + b * (cc.y - gc.y) + r * (1.0f - cc.y);
+            out.z = g * gc.z + b * (cc.z - gc.z) + r * (1.0f - cc.z);
+        }
+    } else {
+        if (r >= g) {
+            out.x = b * bc.x + r * (mc.x - bc.x) + g * (1.0f - mc.x);
+            out.y = b * bc.y + r * (mc.y - bc.y) + g * (1.0f - mc.y);
+            out.z = b * bc.z + r * (mc.z - bc.z) + g * (1.0f - mc.z);
+        } else {
+            out.x = b * bc.x + g * (cc.x - bc.x) + r * (1.0f - cc.x);
+            out.y = b * bc.y + g * (cc.y - bc.y) + r * (1.0f - cc.y);
+            out.z = b * bc.z + g * (cc.z - bc.z) + r * (1.0f - cc.z);
+        }
+    }
+
+    return out;
+}
+
+// ============================================================
+// Soft gamut squeeze (tanh shoulder + exponential toe)
+// ============================================================
+
+__DEVICE__ float3 soft_squeeze(float3 rgb) {
+    float r = rgb.x, g = rgb.y, b = rgb.z;
+
+    const float knee = 0.9f;
+    const float range = 0.1f;
+    if (r > knee) { float t = (r - knee) / range; r = knee + range * _tanhf(t); }
+    if (g > knee) { float t = (g - knee) / range; g = knee + range * _tanhf(t); }
+    if (b > knee) { float t = (b - knee) / range; b = knee + range * _tanhf(t); }
+
+    const float toe = 0.1f;
+    if (r < toe) r = toe * _expf(r / toe - 1.0f);
+    if (g < toe) g = toe * _expf(g / toe - 1.0f);
+    if (b < toe) b = toe * _expf(b / toe - 1.0f);
+
+    return make_float3(r, g, b);
+}
+
+// ============================================================
+// Main Transform
+// ============================================================
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+
+    float r = p_R;
+    float g = p_G;
+    float b = p_B;
+
+    if (r < 0.0f || r > 1.0f || g < 0.0f || g > 1.0f || b < 0.0f || b > 1.0f)
+        return make_float3(r, g, b);
+
+    int hue_den_active = (p_red_hue != 0.0f || p_red_den != 0.0f || p_grn_hue != 0.0f || p_grn_den != 0.0f ||
+                          p_blu_hue != 0.0f || p_blu_den != 0.0f || p_cyn_hue != 0.0f || p_cyn_den != 0.0f ||
+                          p_mag_hue != 0.0f || p_mag_den != 0.0f || p_yel_hue != 0.0f || p_yel_den != 0.0f) ? 1 : 0;
+    int cinecolor_active = (p_cinecolor > 0.0f) ? 1 : 0;
+
+    if (!hue_den_active && !cinecolor_active)
+        return make_float3(r, g, b);
+
+    float luma_before = luminance(r, g, b);
+
+    if (hue_den_active) {
+        float3 rc = tetra_corner(make_float3(1.0f, 0.0f, 0.0f), p_red_hue, p_red_den);
+        float3 gc = tetra_corner(make_float3(0.0f, 1.0f, 0.0f), p_grn_hue, p_grn_den);
+        float3 bc = tetra_corner(make_float3(0.0f, 0.0f, 1.0f), p_blu_hue, p_blu_den);
+        float3 cc = tetra_corner(make_float3(0.0f, 1.0f, 1.0f), p_cyn_hue, p_cyn_den);
+        float3 mc = tetra_corner(make_float3(1.0f, 0.0f, 1.0f), p_mag_hue, p_mag_den);
+        float3 yc = tetra_corner(make_float3(1.0f, 1.0f, 0.0f), p_yel_hue, p_yel_den);
+
+        if (p_hard_squeeze == 1) {
+            rc.x = _fmaxf(0.0f, _fminf(rc.x, 1.0f)); rc.y = _fmaxf(0.0f, _fminf(rc.y, 1.0f)); rc.z = _fmaxf(0.0f, _fminf(rc.z, 1.0f));
+            gc.x = _fmaxf(0.0f, _fminf(gc.x, 1.0f)); gc.y = _fmaxf(0.0f, _fminf(gc.y, 1.0f)); gc.z = _fmaxf(0.0f, _fminf(gc.z, 1.0f));
+            bc.x = _fmaxf(0.0f, _fminf(bc.x, 1.0f)); bc.y = _fmaxf(0.0f, _fminf(bc.y, 1.0f)); bc.z = _fmaxf(0.0f, _fminf(bc.z, 1.0f));
+            cc.x = _fmaxf(0.0f, _fminf(cc.x, 1.0f)); cc.y = _fmaxf(0.0f, _fminf(cc.y, 1.0f)); cc.z = _fmaxf(0.0f, _fminf(cc.z, 1.0f));
+            mc.x = _fmaxf(0.0f, _fminf(mc.x, 1.0f)); mc.y = _fmaxf(0.0f, _fminf(mc.y, 1.0f)); mc.z = _fmaxf(0.0f, _fminf(mc.z, 1.0f));
+            yc.x = _fmaxf(0.0f, _fminf(yc.x, 1.0f)); yc.y = _fmaxf(0.0f, _fminf(yc.y, 1.0f)); yc.z = _fmaxf(0.0f, _fminf(yc.z, 1.0f));
+        }
+
+        float3 result = tetra_interp(r, g, b, rc, gc, bc, cc, mc, yc);
+        r = result.x;
+        g = result.y;
+        b = result.z;
+    }
+
+    if (p_preserve_lum == 1) {
+        float luma_after = luminance(r, g, b);
+        if (luma_after > 0.0f && luma_before > 0.0f) {
+            float ratio = luma_before / luma_after;
+            r *= ratio;
+            g *= ratio;
+            b *= ratio;
+        }
+    }
+
+    if (cinecolor_active) {
+        float cc_t = p_cinecolor;
+        float3 cc_rc = make_float3(1.0f, 0.0f, 0.0f);
+        float3 cc_gc = make_float3(0.0f, 1.0f, cc_t);
+        float3 cc_bc = make_float3(0.0f, 0.0f, 1.0f - cc_t);
+        float3 cc_cc = make_float3(0.0f, 1.0f, 1.0f);
+        float3 cc_mc = make_float3(1.0f, 0.0f, 1.0f - cc_t);
+        float3 cc_yc = make_float3(1.0f, 1.0f, cc_t);
+
+        float cr = _fmaxf(0.0f, _fminf(r, 1.0f));
+        float cg = _fmaxf(0.0f, _fminf(g, 1.0f));
+        float cb = _fmaxf(0.0f, _fminf(b, 1.0f));
+
+        float3 cc_result = tetra_interp(cr, cg, cb, cc_rc, cc_gc, cc_bc, cc_cc, cc_mc, cc_yc);
+
+        if (p_protect_skin == 1) {
+            float prot = skin_mask(cr, cg, cb);
+            cc_result.z = cc_result.z * (1.0f - prot) + cb * prot;
+        }
+
+        r = cc_result.x;
+        g = cc_result.y;
+        b = cc_result.z;
+    }
+
+    if (p_soft_squeeze == 1) {
+        float3 squeezed = soft_squeeze(make_float3(r, g, b));
+        r = squeezed.x;
+        g = squeezed.y;
+        b = squeezed.z;
+    }
+
+    return make_float3(r, g, b);
+}

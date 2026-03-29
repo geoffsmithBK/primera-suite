@@ -1,0 +1,223 @@
+// PrimeraSat v0.2.0
+// https://github.com/gsmith/Primera-DCTL
+
+// ============================================================
+// UI Parameters
+// ============================================================
+
+DEFINE_UI_PARAMS(p_red_sat, Red, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
+DEFINE_UI_PARAMS(p_yel_sat, Yellow, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
+DEFINE_UI_PARAMS(p_grn_sat, Green, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
+DEFINE_UI_PARAMS(p_cyn_sat, Cyan, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
+DEFINE_UI_PARAMS(p_blu_sat, Blue, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
+DEFINE_UI_PARAMS(p_mag_sat, Magenta, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
+DEFINE_UI_PARAMS(p_skin, Skin, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.25, 0.001)
+DEFINE_UI_PARAMS(p_density, Density, DCTLUI_SLIDER_FLOAT, 0.15, 0.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_preserve_lum, Preserve Luma, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_neg_sat, Neg. Saturation, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 1.0, 0.001)
+
+// ============================================================
+// HSV conversion
+// ============================================================
+
+__DEVICE__ float3 rgb_to_hsv(float3 rgb) {
+    float r = rgb.x, g = rgb.y, b = rgb.z;
+    float cmax = _fmaxf(r, _fmaxf(g, b));
+    float cmin = _fminf(r, _fminf(g, b));
+    float delta = cmax - cmin;
+
+    float h = 0.0f;
+    if (delta > 0.0f) {
+        if (cmax == r)      h = (g - b) / delta;
+        else if (cmax == g) h = (b - r) / delta + 2.0f;
+        else                h = (r - g) / delta + 4.0f;
+        if (h < 0.0f) h += 6.0f;
+        h /= 6.0f;
+    }
+
+    float s = (cmax > 0.0f) ? delta / cmax : 0.0f;
+    return make_float3(h, s, cmax);
+}
+
+__DEVICE__ float3 hsv_to_rgb(float3 hsv) {
+    float h = hsv.x * 6.0f;
+    float s = hsv.y;
+    float v = hsv.z;
+
+    float c = v * s;
+    float x = c * (1.0f - _fabs(h - 2.0f * _floorf(h * 0.5f) - 1.0f));
+    float m = v - c;
+
+    float r, g, b;
+    if      (h < 1.0f) { r = c; g = x; b = 0.0f; }
+    else if (h < 2.0f) { r = x; g = c; b = 0.0f; }
+    else if (h < 3.0f) { r = 0.0f; g = c; b = x; }
+    else if (h < 4.0f) { r = 0.0f; g = x; b = c; }
+    else if (h < 5.0f) { r = x; g = 0.0f; b = c; }
+    else               { r = c; g = 0.0f; b = x; }
+
+    return make_float3(r + m, g + m, b + m);
+}
+
+// ============================================================
+// OKLab / OKLCH
+// ============================================================
+
+#define HUE_RED      0.5444f
+#define HUE_YELLOW   1.9172f
+#define HUE_GREEN    2.4853f
+#define HUE_CYAN    -2.8570f
+#define HUE_BLUE    -1.6886f
+#define HUE_MAGENTA -0.5557f
+
+#define HUE_WIDTH    1.0471975512f
+#define PI           3.14159265f
+#define TWO_PI       6.28318530f
+
+__DEVICE__ float cbrtf_safe(float x) {
+    return _copysignf(_powf(_fabs(x), 0.333333333f), x);
+}
+
+__DEVICE__ float3 rgb_to_oklab(float r, float g, float b) {
+    float l = 0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b;
+    float m = 0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b;
+    float s = 0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b;
+
+    l = cbrtf_safe(l);
+    m = cbrtf_safe(m);
+    s = cbrtf_safe(s);
+
+    return make_float3(
+        0.2104542553f * l + 0.7936177850f * m - 0.0040720468f * s,
+        1.9779984951f * l - 2.4285922050f * m + 0.4505937099f * s,
+        0.0259040371f * l + 0.7827717662f * m - 0.8086757660f * s);
+}
+
+__DEVICE__ float3 oklab_to_rgb(float L, float a, float ob) {
+    float l = L + 0.3963377774f * a + 0.2158037573f * ob;
+    float m = L - 0.1055613458f * a - 0.0638541728f * ob;
+    float s = L - 0.0894841775f * a - 1.2914855480f * ob;
+
+    l = l * l * l;
+    m = m * m * m;
+    s = s * s * s;
+
+    return make_float3(
+         4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s,
+        -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s,
+        -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s);
+}
+
+__DEVICE__ float hue_weight(float h, float center) {
+    float d = h - center;
+    if (d > PI) d -= TWO_PI;
+    if (d < -PI) d += TWO_PI;
+    d = _fabs(d);
+    if (d >= HUE_WIDTH) return 0.0f;
+    return 0.5f * (1.0f + _cosf(d * PI / HUE_WIDTH));
+}
+
+// ============================================================
+// Skintone protection
+// Requires: rgb_to_hsv()
+// ============================================================
+
+#define SKIN_HUE_CENTER (28.0f / 360.0f)
+#define SKIN_HUE_WIDTH  (28.0f / 360.0f)
+
+__DEVICE__ float hue_distance(float h1, float h2) {
+    float d = _fabs(h1 - h2);
+    return _fminf(d, 1.0f - d);
+}
+
+__DEVICE__ float smoothstep(float edge0, float edge1, float x) {
+    float t = _clampf((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+__DEVICE__ float skin_mask(float r, float g, float b) {
+    float3 hsv = rgb_to_hsv(make_float3(r, g, b));
+    float h = hsv.x;
+    float s = hsv.y;
+
+    if (s < 1e-6f || hsv.z < 1e-6f) return 0.0f;
+
+    float dist = hue_distance(h, SKIN_HUE_CENTER);
+    float hue_gate = 1.0f - smoothstep(0.0f, SKIN_HUE_WIDTH, dist);
+    float sat_gate = smoothstep(0.1f, 0.25f, s);
+
+    return hue_gate * sat_gate;
+}
+
+// ============================================================
+// Soft gamut squeeze (tanh shoulder + exponential toe)
+// ============================================================
+
+__DEVICE__ float3 soft_squeeze(float3 rgb) {
+    float r = rgb.x, g = rgb.y, b = rgb.z;
+
+    const float knee = 0.9f;
+    const float range = 0.1f;
+    if (r > knee) { float t = (r - knee) / range; r = knee + range * _tanhf(t); }
+    if (g > knee) { float t = (g - knee) / range; g = knee + range * _tanhf(t); }
+    if (b > knee) { float t = (b - knee) / range; b = knee + range * _tanhf(t); }
+
+    const float toe = 0.1f;
+    if (r < toe) r = toe * _expf(r / toe - 1.0f);
+    if (g < toe) g = toe * _expf(g / toe - 1.0f);
+    if (b < toe) b = toe * _expf(b / toe - 1.0f);
+
+    return make_float3(r, g, b);
+}
+
+// ============================================================
+// Transform
+// ============================================================
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+
+    if (p_red_sat == 0.0f && p_yel_sat == 0.0f && p_grn_sat == 0.0f &&
+        p_cyn_sat == 0.0f && p_blu_sat == 0.0f && p_mag_sat == 0.0f &&
+        p_skin == 0.0f && p_neg_sat >= 1.0f)
+        return make_float3(p_R, p_G, p_B);
+
+    float3 lab = rgb_to_oklab(p_R, p_G, p_B);
+    float L = lab.x, a = lab.y, ob = lab.z;
+
+    float C = _sqrtf(a * a + ob * ob);
+    float H = _atan2f(ob, a);
+    float L_orig = L;
+
+    float adj = p_red_sat * hue_weight(H, HUE_RED)
+              + p_yel_sat * hue_weight(H, HUE_YELLOW)
+              + p_grn_sat * hue_weight(H, HUE_GREEN)
+              + p_cyn_sat * hue_weight(H, HUE_CYAN)
+              + p_blu_sat * hue_weight(H, HUE_BLUE)
+              + p_mag_sat * hue_weight(H, HUE_MAGENTA);
+
+    if (p_skin != 0.0f) {
+        float sm = skin_mask(p_R, p_G, p_B);
+        adj += p_skin * sm;
+    }
+
+    if (adj != 0.0f) {
+        C = _fmaxf(C * (1.0f + adj), 0.0f);
+        L *= (1.0f - adj * p_density);
+    }
+
+    if (p_neg_sat < 1.0f) {
+        C *= p_neg_sat;
+    }
+
+    if (p_preserve_lum > 0.0f) {
+        L = L + p_preserve_lum * (L_orig - L);
+    }
+
+    a = C * _cosf(H);
+    ob = C * _sinf(H);
+
+    float3 rgb = oklab_to_rgb(L, a, ob);
+
+    float3 result = soft_squeeze(rgb);
+    return result;
+}

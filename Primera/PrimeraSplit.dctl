@@ -1,0 +1,513 @@
+// PrimeraSplit v0.2.0
+// https://github.com/gsmith/Primera-DCTL
+
+// ============================================================
+// UI Parameters
+// ============================================================
+
+DEFINE_UI_PARAMS(p_tf, Transfer Function, DCTLUI_COMBO_BOX, 0, {TF_LOGC3, TF_LOGC4, TF_REDLOG3G10, TF_SLOG3, TF_ACESCCT, TF_DI, TF_CINEON}, {ARRI LogC3, ARRI LogC4, REDLog3G10, Sony S-Log3, ACEScct, DaVinci Intermediate, Cineon})
+DEFINE_UI_PARAMS(pivot, Mid-Grey Pivot, DCTLUI_SLIDER_FLOAT, 0.0, -0.2, 0.2, 0.001)
+DEFINE_UI_PARAMS(transition, Transition Softness, DCTLUI_SLIDER_FLOAT, 0.2, 0.01, 1.0, 0.001)
+
+DEFINE_UI_PARAMS(shadow_red, Shadow Red, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(shadow_green, Shadow Green, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(shadow_blue, Shadow Blue, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(shadow_cyan, Shadow Cyan, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(shadow_magenta, Shadow Magenta, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(shadow_yellow, Shadow Yellow, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+
+DEFINE_UI_PARAMS(highlight_red, Highlight Red, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(highlight_green, Highlight Green, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(highlight_blue, Highlight Blue, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(highlight_cyan, Highlight Cyan, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(highlight_magenta, Highlight Magenta, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+DEFINE_UI_PARAMS(highlight_yellow, Highlight Yellow, DCTLUI_SLIDER_FLOAT, 0.0, -0.25, 0.25, 0.001)
+
+DEFINE_UI_PARAMS(preserve_luminance, Preserve Luminance, DCTLUI_SLIDER_FLOAT, 0.8, 0.0, 1.0, 0.01)
+DEFINE_UI_PARAMS(opt_showcurve, Show Curve, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(visualize, Show Pivot, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(opt_showramp, Show Ramp, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(ramp_pos, Ramp Position, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 0.85, 0.01)
+DEFINE_UI_PARAMS(p_show_chart, Show Chart, DCTLUI_CHECK_BOX, 0)
+
+// ============================================================
+// Luminance
+// ============================================================
+
+__DEVICE__ float luminance(float r, float g, float b) {
+    return 0.2126f * r + 0.7152f * g + 0.0722f * b;
+}
+
+__DEVICE__ float luminance_dwg(float3 rgb) {
+    return 0.2627f * rgb.x + 0.6780f * rgb.y + 0.0593f * rgb.z;
+}
+
+// ============================================================
+// Transfer functions: linear -> log
+// ============================================================
+
+__DEVICE__ float lin_to_logc3(float x) {
+    const float a = 5.555556f;
+    const float b = 0.052272f;
+    const float c = 0.247190f;
+    const float d = 0.385537f;
+    const float e = 5.367655f;
+    const float f = 0.092809f;
+    const float cut = 0.010591f;
+    return (x > cut) ? c * _log10f(a * x + b) + d : e * x + f;
+}
+
+__DEVICE__ float lin_to_logc4(float x) {
+    const float a = (262144.0f - 16.0f) / 117.45f;
+    const float b = (1023.0f - 95.0f) / 1023.0f;
+    const float c = 95.0f / 1023.0f;
+    const float s = (7.0f * 0.6931471805599453f * _powf(2.0f, 7.0f - 14.0f * c / b)) / (a * b);
+    const float t = (_powf(2.0f, 14.0f * (-c / b) + 6.0f) - 64.0f) / a;
+    return (x >= t) ? (_log2f(a * x + 64.0f) - 6.0f) / 14.0f * b + c : (x - t) / s;
+}
+
+__DEVICE__ float lin_to_redlog3g10(float x) {
+    const float a = 0.224282f;
+    const float b = 155.975327f;
+    const float c = 0.01f;
+    const float g = 15.1927f;
+    float xc = x + c;
+    return (xc < 0.0f) ? xc * g : a * _log10f(xc * b + 1.0f);
+}
+
+__DEVICE__ float lin_to_slog3(float x) {
+    const float cut = 0.01125f;
+    if (x >= cut)
+        return (420.0f + _log10f((x + 0.01f) / 0.19f) * 261.5f) / 1023.0f;
+    else
+        return (x * (171.2102946929f - 95.0f) / 0.01125f + 95.0f) / 1023.0f;
+}
+
+__DEVICE__ float lin_to_acescct(float x) {
+    const float cut = 0.0078125f;
+    const float slope = 10.5402377416545f;
+    const float offset = 0.0729055341958355f;
+    return (x > cut) ? (_log2f(x) + 9.72f) / 17.52f : slope * x + offset;
+}
+
+__DEVICE__ float lin_to_di(float x) {
+    const float A = 0.0075f;
+    const float B = 7.0f;
+    const float C = 0.07329248f;
+    const float M = 10.44426855f;
+    const float LIN_CUT = 0.00262409f;
+    return (x <= LIN_CUT) ? x * M : C * (_log2f(x + A) + B);
+}
+
+__DEVICE__ float lin_to_cineon(float x) {
+    const float offset = 0.0108f;
+    return (_log10f(x * (1.0f - offset) + offset) * 300.0f + 685.0f) / 1023.0f;
+}
+
+__DEVICE__ float encode(float x, int tf) {
+    switch (tf) {
+        case 0: return lin_to_logc3(x);
+        case 1: return lin_to_logc4(x);
+        case 2: return lin_to_redlog3g10(x);
+        case 3: return lin_to_slog3(x);
+        case 4: return lin_to_acescct(x);
+        case 5: return lin_to_di(x);
+        case 6: return lin_to_cineon(x);
+        default: return x;
+    }
+}
+
+// ============================================================
+// Stop chart (bitmap font + renderer)
+// Requires: encode()
+// ============================================================
+
+__DEVICE__ int glyph_row(int ch, int row) {
+    switch (ch) {
+        case '0': return (row==0||row==6)?31:27;
+        case '1': return row==1?14:row==6?31:6;
+        case '2': return (row==0||row==3||row==6)?31:row<3?3:24;
+        case '3': return (row==0||row==3||row==6)?31:3;
+        case '4': return row<=2?27:row==3?31:3;
+        case '5': return (row==0||row==3||row==6)?31:row<3?24:3;
+        case '6': return (row==0||row==3||row==6)?31:row<3?24:27;
+        case '7': return row==0?31:row<=2?3:6;
+        case '8': return (row==0||row==3||row==6)?31:27;
+        case '9': return (row==0||row==3||row==6)?31:row<3?27:3;
+        case 'A': return (row==0||row==3)?31:27;
+        case 'C': return (row==0||row==6)?31:24;
+        case 'D': return (row==0||row==6)?30:27;
+        case 'E': return (row==0||row==3||row==6)?31:24;
+        case 'G': return (row==0||row==6)?31:row<=2?24:27;
+        case 'I': return (row==0||row==6)?31:6;
+        case 'L': return row==6?31:24;
+        case 'N': return row==0||row==6?17:row<=2?25:row==3?21:19;
+        case 'O': return (row==0||row==6)?31:27;
+        case 'P': return (row==0||row==3)?31:row<3?27:24;
+        case 'R': return (row==0||row==3)?31:row<3?27:row==4?26:25;
+        case 'S': return (row==0||row==3||row==6)?31:row<3?24:3;
+        case 'T': return row==0?31:6;
+        case 'Y': return row<=1?27:row==2?14:6;
+        case '=': return (row==2||row==4)?31:0;
+        case '.': return row>=5?12:0;
+        default:  return 0;
+    }
+}
+
+__DEVICE__ int tf_name_char(int tf, int pos) {
+    switch (tf) {
+        case 0:
+            if (pos==0) return 'L'; if (pos==1) return 'O'; if (pos==2) return 'G';
+            if (pos==3) return 'C'; if (pos==4) return '3'; return 0;
+        case 1:
+            if (pos==0) return 'L'; if (pos==1) return 'O'; if (pos==2) return 'G';
+            if (pos==3) return 'C'; if (pos==4) return '4'; return 0;
+        case 2:
+            if (pos==0) return 'R'; if (pos==1) return 'E'; if (pos==2) return 'D';
+            if (pos==3) return 'L'; if (pos==4) return 'O'; if (pos==5) return 'G';
+            if (pos==6) return '3'; if (pos==7) return 'G'; if (pos==8) return '1';
+            if (pos==9) return '0'; return 0;
+        case 3:
+            if (pos==0) return 'S'; if (pos==1) return 'L'; if (pos==2) return 'O';
+            if (pos==3) return 'G'; if (pos==4) return '3'; return 0;
+        case 4:
+            if (pos==0) return 'A'; if (pos==1) return 'C'; if (pos==2) return 'E';
+            if (pos==3) return 'S'; if (pos==4) return 'C'; if (pos==5) return 'C';
+            if (pos==6) return 'T'; return 0;
+        case 5:
+            if (pos==0) return 'D'; if (pos==1) return 'I'; return 0;
+        case 6:
+            if (pos==0) return 'C'; if (pos==1) return 'I'; if (pos==2) return 'N';
+            if (pos==3) return 'E'; if (pos==4) return 'O'; if (pos==5) return 'N';
+            return 0;
+        default: return 0;
+    }
+}
+
+__DEVICE__ int tf_name_len(int tf) {
+    switch (tf) {
+        case 0: return 5;  case 1: return 5;  case 2: return 10;
+        case 3: return 5;  case 4: return 7;  case 5: return 2;
+        case 6: return 6;  default: return 0;
+    }
+}
+
+__DEVICE__ float3 render_chart(int p_Width, int p_Height, int p_X, int p_Y, int tf) {
+    int px = p_X;
+    int py = p_Y;
+    float x_norm = (float)px / (float)p_Width;
+    float y_norm = (float)py / (float)p_Height;
+
+    // Upper half: 17 stop columns (-8 to +8)
+    if (y_norm < 0.5f) {
+        int num_cols = 17;
+        int col = (int)(x_norm * (float)num_cols);
+        if (col >= num_cols) col = num_cols - 1;
+        int stop = col - 8;
+        float lin = 0.18f * _powf(2.0f, (float)stop);
+        float val = encode(lin, tf);
+        val = _fmaxf(0.0f, _fminf(val, 1.0f));
+        return make_float3(val, val, val);
+    }
+
+    // Lower half: gradient + text overlay
+    float val = x_norm;
+    float mid_grey = encode(0.18f, tf);
+
+    int cell = p_Height / 100;
+    if (cell < 2) cell = 2;
+
+    int mg_d1 = (int)(mid_grey * 10.0f) % 10;
+    int mg_d2 = (int)(mid_grey * 100.0f) % 10;
+    int mg_d3 = (int)(mid_grey * 1000.0f + 0.5f) % 10;
+
+    int char_w = 6 * cell;
+    int char_h = 7 * cell;
+    int line_gap = 3 * cell;
+    int pad = 2 * cell;
+
+    int name_len = tf_name_len(tf);
+    int line2_len = 15;
+
+    int lower_top = p_Height / 2;
+    int lower_h = p_Height - lower_top;
+    int total_text_h = char_h * 2 + line_gap;
+    int line1_top = lower_top + (lower_h - total_text_h) / 2;
+    int line2_top = line1_top + char_h + line_gap;
+
+    int line1_left = (p_Width - name_len * char_w + cell) / 2;
+    int line2_left = (p_Width - line2_len * char_w + cell) / 2;
+
+    int box_l = (line1_left < line2_left ? line1_left : line2_left) - pad;
+    int box_r = line1_left + name_len * char_w;
+    int box_r2 = line2_left + line2_len * char_w;
+    if (box_r2 > box_r) box_r = box_r2;
+    box_r += pad;
+    int box_t = line1_top - pad;
+    int box_b = line2_top + char_h + pad;
+
+    int in_box = (px >= box_l && px < box_r && py >= box_t && py < box_b) ? 1 : 0;
+    int text_hit = 0;
+
+    if (py >= line1_top && py < line1_top + char_h) {
+        int lx = px - line1_left;
+        if (lx >= 0 && lx < name_len * char_w) {
+            int ci = lx / char_w;
+            int cx = (lx % char_w) / cell;
+            int cy = (py - line1_top) / cell;
+            if (cx < 5) {
+                int ch = tf_name_char(tf, ci);
+                if (ch > 0) {
+                    int mask = glyph_row(ch, cy);
+                    if ((mask >> (4 - cx)) & 1) text_hit = 1;
+                }
+            }
+        }
+    }
+
+    if (text_hit == 0 && py >= line2_top && py < line2_top + char_h) {
+        int lx = px - line2_left;
+        if (lx >= 0 && lx < line2_len * char_w) {
+            int ci = lx / char_w;
+            int cx = (lx % char_w) / cell;
+            int cy = (py - line2_top) / cell;
+            if (cx < 5) {
+                int ch = 0;
+                switch (ci) {
+                    case 0: ch='1'; break; case 1: ch='8'; break;
+                    case 2: ch=' '; break; case 3: ch='G'; break;
+                    case 4: ch='R'; break; case 5: ch='A'; break;
+                    case 6: ch='Y'; break; case 7: ch=' '; break;
+                    case 8: ch='='; break; case 9: ch=' '; break;
+                    case 10: ch='0'; break; case 11: ch='.'; break;
+                    case 12: ch='0'+mg_d1; break;
+                    case 13: ch='0'+mg_d2; break;
+                    case 14: ch='0'+mg_d3; break;
+                }
+                if (ch > 32) {
+                    int mask = glyph_row(ch, cy);
+                    if ((mask >> (4 - cx)) & 1) text_hit = 1;
+                }
+            }
+        }
+    }
+
+    if (text_hit == 1) {
+        val = mid_grey + 0.12f;
+    } else if (in_box == 1) {
+        val = mid_grey;
+    }
+
+    return make_float3(val, val, val);
+}
+
+// ============================================================
+// Subtractive split toning
+// ============================================================
+
+__DEVICE__ float smooth_step(float edge0, float edge1, float x) {
+    float t = _clampf((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+__DEVICE__ float calculate_subtractive_impact(float3 rgb_adj, float3 cmy_adj) {
+    float total_reduction = 0.0f;
+
+    total_reduction += _fmaxf(0.0f, rgb_adj.x) * 0.5f;
+    total_reduction += _fmaxf(0.0f, rgb_adj.y) * 0.5f;
+    total_reduction += _fmaxf(0.0f, rgb_adj.z) * 0.5f;
+
+    total_reduction += _fmaxf(0.0f, -rgb_adj.x) * 0.33f;
+    total_reduction += _fmaxf(0.0f, -rgb_adj.y) * 0.33f;
+    total_reduction += _fmaxf(0.0f, -rgb_adj.z) * 0.33f;
+
+    total_reduction += _fmaxf(0.0f, cmy_adj.x) * 0.33f;
+    total_reduction += _fmaxf(0.0f, cmy_adj.y) * 0.33f;
+    total_reduction += _fmaxf(0.0f, cmy_adj.z) * 0.33f;
+
+    total_reduction += _fmaxf(0.0f, -cmy_adj.x) * 0.5f;
+    total_reduction += _fmaxf(0.0f, -cmy_adj.y) * 0.5f;
+    total_reduction += _fmaxf(0.0f, -cmy_adj.z) * 0.5f;
+
+    return total_reduction;
+}
+
+__DEVICE__ float calculate_luminance_compensation(float subtractive_impact) {
+    if (subtractive_impact <= 0.0f) return 1.0f;
+    float compensation = 1.0f + (subtractive_impact * 2.0f);
+    return _clampf(compensation, 1.0f, 2.0f);
+}
+
+__DEVICE__ float3 apply_subtractive_adjustment(float3 rgb, float3 rgb_adjustment, float3 cmy_adjustment) {
+    float3 result = rgb;
+
+    if (rgb_adjustment.x > 0.0f) {
+        result.y *= (1.0f - rgb_adjustment.x);
+        result.z *= (1.0f - rgb_adjustment.x);
+    } else if (rgb_adjustment.x < 0.0f) {
+        result.x *= (1.0f + rgb_adjustment.x);
+    }
+
+    if (rgb_adjustment.y > 0.0f) {
+        result.x *= (1.0f - rgb_adjustment.y);
+        result.z *= (1.0f - rgb_adjustment.y);
+    } else if (rgb_adjustment.y < 0.0f) {
+        result.y *= (1.0f + rgb_adjustment.y);
+    }
+
+    if (rgb_adjustment.z > 0.0f) {
+        result.x *= (1.0f - rgb_adjustment.z);
+        result.y *= (1.0f - rgb_adjustment.z);
+    } else if (rgb_adjustment.z < 0.0f) {
+        result.z *= (1.0f + rgb_adjustment.z);
+    }
+
+    if (cmy_adjustment.x > 0.0f) {
+        result.x *= (1.0f - cmy_adjustment.x);
+    } else if (cmy_adjustment.x < 0.0f) {
+        result.y *= (1.0f + cmy_adjustment.x);
+        result.z *= (1.0f + cmy_adjustment.x);
+    }
+
+    if (cmy_adjustment.y > 0.0f) {
+        result.y *= (1.0f - cmy_adjustment.y);
+    } else if (cmy_adjustment.y < 0.0f) {
+        result.x *= (1.0f + cmy_adjustment.y);
+        result.z *= (1.0f + cmy_adjustment.y);
+    }
+
+    if (cmy_adjustment.z > 0.0f) {
+        result.z *= (1.0f - cmy_adjustment.z);
+    } else if (cmy_adjustment.z < 0.0f) {
+        result.x *= (1.0f + cmy_adjustment.z);
+        result.y *= (1.0f + cmy_adjustment.z);
+    }
+
+    return result;
+}
+
+__DEVICE__ float3 draw_curve_overlay(float3 rgb, int p_X, int p_Y, int p_Width, int p_Height, float pivot_val, float transition_val) {
+    float x_norm = (float)p_X / (float)p_Width;
+    float y_norm = 1.0f - (float)p_Y / (float)p_Height;
+
+    float shadow_edge = pivot_val - transition_val * 0.5f;
+    float highlight_edge = pivot_val + transition_val * 0.5f;
+
+    float shadow_weight = 1.0f - smooth_step(shadow_edge, highlight_edge, x_norm);
+    float highlight_weight = smooth_step(shadow_edge, highlight_edge, x_norm);
+
+    float curve_thickness = 0.003f;
+
+    float shadow_curve_y = 0.7f + shadow_weight * 0.2f;
+    if (_fabs(y_norm - shadow_curve_y) < curve_thickness) {
+        rgb = _mix(rgb, make_float3(1.0f, 0.3f, 0.3f), 0.7f);
+    }
+
+    float highlight_curve_y = 0.3f + highlight_weight * 0.2f;
+    if (_fabs(y_norm - highlight_curve_y) < curve_thickness) {
+        rgb = _mix(rgb, make_float3(0.3f, 0.5f, 1.0f), 0.7f);
+    }
+
+    float pivot_x = pivot_val;
+    if (_fabs(x_norm - pivot_x) < curve_thickness) {
+        rgb = _mix(rgb, make_float3(1.0f, 1.0f, 0.3f), 0.5f);
+    }
+
+    return rgb;
+}
+
+// ============================================================
+// Main Transform
+// ============================================================
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+
+    float effective_pivot = encode(0.18f, p_tf) + pivot;
+
+    if (p_show_chart == 1) {
+        float3 chart = render_chart(p_Width, p_Height, p_X, p_Y, p_tf);
+        return chart;
+    }
+
+    float3 rgb = make_float3(p_R, p_G, p_B);
+
+    float width = (float)p_Width;
+    float height = (float)p_Height;
+    float X = (float)p_X;
+    float Y = height - (float)p_Y;
+    float3 ramp = make_float3(X / width, X / width, X / width);
+
+    float luma = luminance_dwg(rgb);
+
+    float shadow_edge = effective_pivot - transition * 0.5f;
+    float highlight_edge = effective_pivot + transition * 0.5f;
+
+    float shadow_weight = 1.0f - smooth_step(shadow_edge, highlight_edge, luma);
+    float highlight_weight = smooth_step(shadow_edge, highlight_edge, luma);
+
+    float3 shadow_rgb_adj = make_float3(shadow_red, shadow_green, shadow_blue);
+    float3 shadow_cmy_adj = make_float3(shadow_cyan, shadow_magenta, shadow_yellow);
+    float3 highlight_rgb_adj = make_float3(highlight_red, highlight_green, highlight_blue);
+    float3 highlight_cmy_adj = make_float3(highlight_cyan, highlight_magenta, highlight_yellow);
+
+    float3 final_shadow_rgb = shadow_rgb_adj * shadow_weight;
+    float3 final_shadow_cmy = shadow_cmy_adj * shadow_weight;
+    float3 final_highlight_rgb = highlight_rgb_adj * highlight_weight;
+    float3 final_highlight_cmy = highlight_cmy_adj * highlight_weight;
+
+    float3 combined_rgb_adj = final_shadow_rgb + final_highlight_rgb;
+    float3 combined_cmy_adj = final_shadow_cmy + final_highlight_cmy;
+
+    rgb = apply_subtractive_adjustment(rgb, combined_rgb_adj, combined_cmy_adj);
+
+    if (preserve_luminance > 0.0f) {
+        float subtractive_impact = calculate_subtractive_impact(combined_rgb_adj, combined_cmy_adj);
+        float compensation = calculate_luminance_compensation(subtractive_impact);
+        rgb *= 1.0f + (compensation - 1.0f) * preserve_luminance;
+    }
+
+    float ramp_luma = X / width;
+    float ramp_shadow_weight = 1.0f - smooth_step(shadow_edge, highlight_edge, ramp_luma);
+    float ramp_highlight_weight = smooth_step(shadow_edge, highlight_edge, ramp_luma);
+
+    float3 ramp_shadow_rgb = shadow_rgb_adj * ramp_shadow_weight;
+    float3 ramp_shadow_cmy = shadow_cmy_adj * ramp_shadow_weight;
+    float3 ramp_highlight_rgb = highlight_rgb_adj * ramp_highlight_weight;
+    float3 ramp_highlight_cmy = highlight_cmy_adj * ramp_highlight_weight;
+
+    float3 ramp_combined_rgb_adj = ramp_shadow_rgb + ramp_highlight_rgb;
+    float3 ramp_combined_cmy_adj = ramp_shadow_cmy + ramp_highlight_cmy;
+
+    ramp = apply_subtractive_adjustment(ramp, ramp_combined_rgb_adj, ramp_combined_cmy_adj);
+
+    if (preserve_luminance > 0.0f) {
+        float ramp_subtractive_impact = calculate_subtractive_impact(ramp_combined_rgb_adj, ramp_combined_cmy_adj);
+        float ramp_compensation = calculate_luminance_compensation(ramp_subtractive_impact);
+        ramp *= 1.0f + (ramp_compensation - 1.0f) * preserve_luminance;
+    }
+
+    if (visualize) {
+        rgb = draw_curve_overlay(rgb, p_X, p_Y, p_Width, p_Height, effective_pivot, transition);
+    }
+
+    if (opt_showcurve == 1) {
+        float overlayR = ramp.x >= (Y - 5.0f) / height && ramp.x <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+        float overlayG = ramp.y >= (Y - 5.0f) / height && ramp.y <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+        float overlayB = ramp.z >= (Y - 5.0f) / height && ramp.z <= (Y + 5.0f) / height ? 1.0f : 0.0f;
+
+        rgb.x = overlayR == 0.0f ? rgb.x : overlayR;
+        rgb.y = overlayG == 0.0f ? rgb.y : overlayG;
+        rgb.z = overlayB == 0.0f ? rgb.z : overlayB;
+    }
+
+    if (opt_showramp == 1) {
+        float y_norm = 1.0f - (float)p_Y / (float)p_Height;
+        if (y_norm >= ramp_pos && y_norm <= ramp_pos + 0.15f) {
+            rgb.x = ramp.x;
+            rgb.y = ramp.y;
+            rgb.z = ramp.z;
+        }
+    }
+
+    return rgb;
+}
