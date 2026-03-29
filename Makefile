@@ -12,7 +12,7 @@ PrimeraSplit_FRAGS := luminance tf_encode chart
 
 LUT_DIR := /Library/Application Support/Blackmagic Design/DaVinci Resolve/LUT
 
-.PHONY: all dev clean install install-dev
+.PHONY: all dev clean install install-dev release
 
 all: OUTDIR := Primera
 all: $(TOOLS)
@@ -35,5 +35,9 @@ install: all
 install-dev: dev
 	cp -r 0_Primera "$(LUT_DIR)/"
 
+release: all
+	@mkdir -p dist
+	cd Primera && zip -r ../dist/Primera.zip .
+
 clean:
-	rm -rf Primera 0_Primera
+	rm -rf Primera 0_Primera dist
