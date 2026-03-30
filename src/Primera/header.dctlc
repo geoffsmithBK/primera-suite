@@ -1,0 +1,21 @@
+// Primera v0.2.0
+// https://github.com/gsmith/Primera-DCTL
+
+// ============================================================
+// UI Parameters
+// ============================================================
+
+DEFINE_UI_PARAMS(p_tf, Transfer Function, DCTLUI_COMBO_BOX, 0, {TF_LOGC3, TF_LOGC4, TF_REDLOG3G10, TF_SLOG3, TF_ACESCCT, TF_DI, TF_CINEON}, {ARRI LogC3, ARRI LogC4, REDLog3G10, Sony S-Log3, ACEScct, DaVinci Intermediate, Cineon})
+DEFINE_UI_PARAMS(p_exposure, Exposure Stops, DCTLUI_SLIDER_FLOAT, 0.0, -6.0, 6.0, 0.001)
+DEFINE_UI_PARAMS(p_bp, Black Point, DCTLUI_SLIDER_FLOAT, 0.0, -0.05, 0.05, 0.0001)
+DEFINE_UI_PARAMS(p_temp, Temp, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_tint, Tint, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_contrast, Contrast, DCTLUI_SLIDER_FLOAT, 1.0, 0.5, 2.0, 0.001)
+DEFINE_UI_PARAMS(p_pivot_offset, Pivot, DCTLUI_SLIDER_FLOAT, 0.0, -0.2, 0.2, 0.001)
+DEFINE_UI_PARAMS(p_shadows, Shadows, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_highlights, Highlights, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_high_soft, Roll Off, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 2.0, 0.001)
+DEFINE_UI_PARAMS(p_neg_sat, Neg. Saturation, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_pos_sat, Pos. Saturation, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_preserve_lum, Preserve Luma - Sat, DCTLUI_CHECK_BOX, 0)
+DEFINE_UI_PARAMS(p_show_chart, Show Chart, DCTLUI_CHECK_BOX, 0)
