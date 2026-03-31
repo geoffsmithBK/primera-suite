@@ -1,74 +1,77 @@
 ## Primera Suite
 
-Primera is my personal suite of color grading tools, made from my experience using a number of widely available tools and approaches. I use it both for clip-level grading (shot-to-shot balancing) as well as for look development.
+My personal suite of DaVinci Resolve DCTL color grading tools for clip-level grading and look development. Built from shared code fragments via `make`.
 
-It's a grab-bag of my favorite approaches to each stage in the toolchain. Most of the code is based on open-source DCTLs created by generous individuals in the color grading community (see list at bottom). Primera is mostly me (and my buddy Claude) bringing everything together in one place, with one name, for the sake of convenience. I make no claim to doing anything truly 'original' for the logic used, only that I like this way of working and this 'suite' allows me to have everything close at hand with all of (and only) the sliders and checkboxes I need/prefer.
+Most of the underlying math comes from tried-and-tested open-source DCTLs by generous members of the color grading community (see bottom). Primera consolidates the approaches I reach for most often into one place, under one name, and with only the controls I actually use.
 
-It's a preferential (some might say "opinionated") approach, one that uses aspects of the "film look" as a lodestar but that doesn't attempt to replicate or reproduce any specific brand, emulsion, or photochemical process. It's more meant to help me recall my "sense memories" of growing up in the 1970s and 80s and seeing lots of movies in the theater which were all (necessarily) shot and projected on film. Though, hopefully the tools and approaches here are flexible enough to get any number of looks, not just those seen through the rose-colored glasses of nostalgia.
-
-Primera (`Primera.dctl`)
-
-This is the foundation of the suite and provides the basic controls that I would typically use when balancing a shot at the clip level:
-
- — Exposure - done in linear gain (`Gain = 2^n`, same as photographic stops) before being applied to the currently selected transfer function
-
- — Black point - also called "flare" in some grading systems (e.g. Baselight); this version tries to smoothly compress the darkest tones at the bottom of the signal as they approach pure black
-
- — Temp - emulates setting a camera's white balance to account for the dominant SPD of a light fixture (obviously also a creative/interpretive choice)
-
- — Tint - the 'Temp' control swings across the warm/cool axis of the black body curve (or pretends to) and this control swings between green and magenta (like "phase" in NTSC)
-
- — Contrast - does what you'd expect: stretches the signal to push lighter and darker picture content further away from one another or squash them closer together (operates in Log space)
-
- — Pivot - defines the mid-point of the stretch/squash; by default this is set to the mid-grey value of the selected transfer function
-
- — Shadows - this control is linear gain constrained to operate below a transfer function's mid-grey point
-
- — Highlights - commensurate to Shadows, this constrains a linear gain operation above mid-grey; note that there are no 'spatial' operations taking place with either, as there are with Resolve's same-named controls in the primaries panel, which means their contributions can be encoded in a 3D LUT
-
- — Roll Off - this is a Log space function that is more or less the same as Resolve's ganged 'Soft Clip' function (tanh) to allow control of where the brightest highlights "top out"; works with 'Highlights' above to tailor highlight compression/expansion
-
- — Neg. Saturation - this uses multiplicative negative gain in RGB on the chroma values of all three channels (it never makes the image brighter)
-
- — Pos. Saturation - this uses linear gain on the 'S' component of an HSV color model and is constrained to only operate in the positive direction; also only makes the image darker, which some refer to as "density" or "subtractive saturation" (this can be accounted for however — see below)
-
- — Preserve Luma - Sat - this checkbox applies positive luma gain to offset the darkening that may have been introduced via the saturation sliders (I almost never use it though)
-
- — Show Chart - this draws a chart, per transfer function, like the one Walter Volpatto shows on YouTube here
-
- — Transfer Function - this dropdown selects from among the Log curves that I encounter most often in my work
+Mu aesthetic lodestar is a "film look," in the broad sense, but I'm generally not emulating any specific stock or process, more chasing my personal "sense memories" of projected film. However, these tools are (hopefully) flexible enough to go well beyond that.
 
 
-Primera Plus
+### Primera (`Primera.dctl`)
 
-The "plus" version of Primera incorporates the functionality of PrimeraHue.dctl, which does hue warping using tetrahedral interpolation (see below). The "plus" version is meant for use either at the look development level (such as in Resolve's Group or Timeline node graphs) or for those times where you want to shift some hues along with primary moves at the clip level.
+The foundation. Primary grading controls for shot-to-shot balancing:
 
+- **Exposure** — Linear gain in photographic stops (`2^n`) applied before the selected transfer function
+- **Black Point** — Smooth compression of the darkest tones approaching black (sometimes called "flare," e.g. in Baselight)
+- **Temp / Tint** — White balance: Temp swings warm/cool along the black body curve, Tint swings green/magenta
+- **Contrast** — Log-space stretch/squash of the tonal range around a variable **Pivot** (defaults to the transfer function's mid-grey)
+- **Shadows / Highlights** — Linear gain constrained below/above mid-grey; no spatial operations so can be encoded in a 3D LUT
+- **Roll Off** — `tanh` highlight compression controlling where the brightest values top out; works with Highlights to shape the shoulder
+- **Neg. Saturation** — Multiplicative negative RGB gain on chroma (only darkens)
+- **Pos. Saturation** — HSV saturation boost, positive only; adds "density" (darkness)
+- **Preserve Luma** — weighted offset of the darkening effect from the saturation controls
+- **Show Chart** — Draws a per-transfer-function curve chart a là [Walter Volpatto's example] (https://youtu.be/ymr4wyo7GcA?t=3670)
+- **Transfer Function** — LogC3, LogC4, REDLog3G10, S-Log3, ACEScct, DaVinci Intermediate, Cineon (these are the ones I encounter most often day-to-day)
 
-Primera Hue
+### Primera Hue
 
-This tool implements Calvin Silly's (aka hotgluebanjo) DCTL implementation of what's generally considered the "modern" approach to hue shifting as described by Steve Yedlin in the follow-up discussion to his DisplayPrep video from 2018. Each color's hue slider pushes it towards the color on the opposite "side," and the density slider makes the resulting color darker and (subjectively) more "saturated" or "colorful feeling" without adding "energy" or "stridency."
+Per-channel hue and density control via tetrahedral interpolation, based on [hotgluebanjo]'s (https://github.com/hotgluebanjo/TetraInterp-DCTL) DCTL implementation of the approach described by Steve Yedlin ([DisplayPrep] (https://www.yedlin.net/DisplayPrepDemo/index.html), 2018).
 
-It uses Sakamoto et al's method of decomposing the color wheel into sextants (six "pie slices," one for each primary and secondary color) and bending them into cubic corners. It  then uses Rodrigues rotations to rotate the chromatic components around the corner's achromatic (black/white) axis. Each slider gives +/- 60° of rotation, when visualized as a disc in HSV (6*60° = 360°), meaning that it allows for pushing/pulling one color all the way to another.
+- **6 Hue sliders** (R/Y/G/C/B/M) — Each pushes a color toward its neighbors via Rodrigues rotation around the achromatic axis. +/-60° per channel covers the full 360°.
+- **6 Density sliders** — Makes the shifted color darker and subjectively more "colorful" without adding energy.
+- **Preserve Luma** — Scales output to nominal level before density adjustment. Runs before Cinecolor.
+- **Hard Clamp** — Clips to [0,1] before interpolation.
+- **Soft Clamp** — tanh shoulder + exponential toe after interpolation for gentle gamut containment.
+- **Cinecolor** — 2-strip Technicolor-like simulation via bipack-style blue-to-green blending. Named after a [budget color process] (https://www.youtube.com/watch?v=dnNeKxt0urk) (~late '30s to early '50s) that used duplitized print stock.
+- **Protect Skintones** — Applies only to Cinecolor. Creates a holdout matte centered on the skin tone line (~28° on an HSV disc) with smooth falloff.
 
-It's smoothed out by tanh near 1.0 (like the highlights slider in Primera) and the same exponential compression as Primera's shadows slider as things get close to 0 in the toe. Maybe there's a better way (?), but these methods attempt to provide "guardrails" to avoid "breaking" the image when making large adjustments.
+### Primera Plus (`PrimeraPlus.dctl`)
+ 
+Primera's full control set plus PrimeraHue's tetrahedral hue/density interpolation in a single DCTL. Intended for look development (Group/Timeline nodes) or when hue shifts are needed alongside primary corrections at the clip level.
 
-At the bottom is a slider named 'Cinecolor', after a color process used on lower budget films between about 1940 and 1951 (the "Datsun" to Technicolor's "Cadillac"). Cinecolor exclusively used a "bipack" approach to color (aka "contact exposure"), similar to 2-Strip Technicolor, but with special "duplitized" print film with emulsion on both sides of the celluloid base. You could maybe think of it as "2.5-strip Technicolor" (-ish). It was generally seen, in Hollywood, as the crappy version of Technicolor and saw some use on B westerns and the like. Anyway, it's here for you now (without the registration nightmares) in 2026 ;).
+### Primera Skin
 
-The "Preserve Luma" checkbox works just like the one in Primera (non-Plus) by scaling the output back to a nominal signal level prior to the density adjustment. This somewhat negates the absolute contribution of the 'density' component, since it's largely a perceptual effect, but it can help keep the image from going unduly dark and requiring compensation. Note that this function runs before the 'Cinecolor' block and so doesn't directly affect that slider's contribution to the image.
+Dedicated skintone correction tool operating in the OKLCH color model. Targets a soft region of the HSV disc centered on the nominal skin tone hue (~28°) and applies perceptually uniform adjustments only within that region. Everything outside the mask passes through untouched.
 
-"Hard Clamp" fixes values at [0,1] prior to 'terp' (tetrahedral interpolation) and "Soft Clamp" applies the above-mentioned "guardrails" (tanh in the shoulder/highlights, exponential compression in the toe) afterwards to (hopefully) gently keep all values in-range. Can be used separately or together.
+- **Hue** — Rotates skin hue in OKLCH (+/-30°)
+- **Saturation** — Scales chroma symmetrically; both positive and negative directions stay in OKLCH for consistent behavior with no hue shift
+- **Density** — Adjusts lightness (positive = darker)
+- **Range** — Widens or narrows the skin mask (0.25 = tight +/-7°, 1.0 = default +/-28°, 2.0 = broad +/-56°)
 
-NOTE: all of the math explanatia here is for the curious; any and all decisions about how, why, and when to use any tool, or particular aspect of a tool, should be made with eyes on the *image* rather than a GitHub README.
+Gamut containment is done via a "soft squeeze" (`tanh` in the shoulder and exponential compression in the toe).
 
-Finally, the *Protect Skintones* checkbox applies *only* to the Cinecolor slider. It creates a "holdout matte" around the pixel values on either side of the "skin tone line," as can be visualized in Resolve's vectorscope (roughly 28° counted counterclockwise on an HSV disc). It's a fuzzy slice of the HSV "pie," centered on the nominal skin tone value and falling off smoothly on either side up to 25° away. I almost never have it checked but it's there if you need it.
+### Primera Split
 
+Subtractive split-toning for imbuing shadows and highlights with independent color casts. Less an "effect" than a fundamental look development control — it defines the chromatic character of the tonal curve.
 
-Primera Split
+- **Pivot** — Defaults to the selected transfer function's mid-grey but should be set by eye
+- **Transfer Function** — Aligns Pivot to the appropriate mid-grey
+- **Show Chart** — Curve/transfer function visualization with positionable greyscale ramp
 
-Split-toning DCTL that uses subtractive math to imbue the shadows and/or highlights with a color cast. Split-toning can also be seen as less of an "effect," and more of a fundamental look development tool, defining the chromatic side of a look's characteristic curve. The 'Transfer Function' combo box initially aligns the 'Pivot' slider with a given transfer function's mid-grey point (however, as with all tools, the ultimate 'split' here should remain a creative choice). Offers curves and transfer function visualizations as well as a positionable greyscale ramp.
+### Notes
 
+- The Primera tools should play nicely with most DRTs (Display Rendering Transform, the final color managment pipeline stage before outputting a deliverable) but has been used/tested the most with [Jed Smith]'s (https://github.com/jedypod) [OpenDRT] (https://github.com/jedypod/open-display-transform)
+- I also regularly use/test the tools with Resolve's CST, Juan-Pablo Zambrano's excellent 2499 DRT, the ACES 2.0 transforms, and occasionally LUTs
+- It is possible to produce negative/out-of-range values with the Primera tools. When this happens, I reach for gamut compression first to help contain things over and above the "soft squeeze" being done in the tools themselves
+- Kaur Hendriksen made a great, [free standalone DCTL] (https://store.kaurh.com) that implements the ACES 2.0 gamut compression coefficients which I can whole-heartedly recommend
 
-Primera Sat
+### Inspiration 
 
-This is less of a traditional saturation tool and more of a perceptual color shaping tool. It round-trips the image through the OKLab color space and allows colors' perceptual "energies" to  be "tuned" without changing the base hue. It tries to provide a clean way to "calm down" colors that are verging on perceptual stridency. Said another way, it can help counteract the Helmholtz-Kohlrausch effect, the phenomenon where saturated colors appear brighter than less-saturated colors of the same value. I don't always use it but when I do it's typically towards the tail end of my look development stack, as a sort of "limiter."
+There's not much particularly original with the Primera tools, as I said they're more of a curated/opinionated collection of my favorite approaches to primary grading and some aspects of look development. In no particular order, Primera owes 90%+ of its existence to the work of the following individuals:
 
+- [Jed Smith] (https://github.com/jedypod)
+- [Juan Pablo Zambrano] (https://github.com/JuanPabloZambrano)
+- [Moaz Elgabry] (https://github.com/MoazElgabry)
+- [Thatcher Freeman] (https://github.com/thatcherfreeman)
+- [Paul Dore] (https://github.com/baldavenger)
+- [Kaur Hendrikson] (https://kaurh.com)
