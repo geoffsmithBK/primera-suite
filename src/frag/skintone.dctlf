@@ -17,16 +17,21 @@ __DEVICE__ float smoothstep(float edge0, float edge1, float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
-__DEVICE__ float skin_mask(float r, float g, float b) {
+__DEVICE__ float skin_mask_range(float r, float g, float b, float range) {
     float3 hsv = rgb_to_hsv(make_float3(r, g, b));
     float h = hsv.x;
     float s = hsv.y;
 
     if (s < 1e-6f || hsv.z < 1e-6f) return 0.0f;
 
+    float width = SKIN_HUE_WIDTH * range;
     float dist = hue_distance(h, SKIN_HUE_CENTER);
-    float hue_gate = 1.0f - smoothstep(0.0f, SKIN_HUE_WIDTH, dist);
+    float hue_gate = 1.0f - smoothstep(0.0f, width, dist);
     float sat_gate = smoothstep(0.1f, 0.25f, s);
 
     return hue_gate * sat_gate;
+}
+
+__DEVICE__ float skin_mask(float r, float g, float b) {
+    return skin_mask_range(r, g, b, 1.0f);
 }

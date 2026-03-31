@@ -1,20 +1,14 @@
-// PrimeraSat v0.2.0
-// https://github.com/gsmith/Primera-DCTL
+// PrimeraSkin v0.3.0
+// https://github.com/geoffsmithBK/primera-suite
 
 // ============================================================
 // UI Parameters
 // ============================================================
 
-DEFINE_UI_PARAMS(p_red_sat, Red, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
-DEFINE_UI_PARAMS(p_yel_sat, Yellow, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
-DEFINE_UI_PARAMS(p_grn_sat, Green, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
-DEFINE_UI_PARAMS(p_cyn_sat, Cyan, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
-DEFINE_UI_PARAMS(p_blu_sat, Blue, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
-DEFINE_UI_PARAMS(p_mag_sat, Magenta, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
-DEFINE_UI_PARAMS(p_skin, Skin, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.25, 0.001)
-DEFINE_UI_PARAMS(p_density, Density, DCTLUI_SLIDER_FLOAT, 0.15, 0.0, 1.0, 0.001)
-DEFINE_UI_PARAMS(p_preserve_lum, Preserve Luma, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.001)
-DEFINE_UI_PARAMS(p_neg_sat, Neg. Saturation, DCTLUI_SLIDER_FLOAT, 1.0, 0.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_hue, Hue, DCTLUI_SLIDER_FLOAT, 0.0, -30.0, 30.0, 0.1)
+DEFINE_UI_PARAMS(p_saturation, Saturation, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_density, Density, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
+DEFINE_UI_PARAMS(p_range, Range, DCTLUI_SLIDER_FLOAT, 1.0, 0.25, 2.0, 0.01)
 
 // ============================================================
 // HSV conversion
@@ -135,18 +129,23 @@ __DEVICE__ float smoothstep(float edge0, float edge1, float x) {
     return t * t * (3.0f - 2.0f * t);
 }
 
-__DEVICE__ float skin_mask(float r, float g, float b) {
+__DEVICE__ float skin_mask_range(float r, float g, float b, float range) {
     float3 hsv = rgb_to_hsv(make_float3(r, g, b));
     float h = hsv.x;
     float s = hsv.y;
 
     if (s < 1e-6f || hsv.z < 1e-6f) return 0.0f;
 
+    float width = SKIN_HUE_WIDTH * range;
     float dist = hue_distance(h, SKIN_HUE_CENTER);
-    float hue_gate = 1.0f - smoothstep(0.0f, SKIN_HUE_WIDTH, dist);
+    float hue_gate = 1.0f - smoothstep(0.0f, width, dist);
     float sat_gate = smoothstep(0.1f, 0.25f, s);
 
     return hue_gate * sat_gate;
+}
+
+__DEVICE__ float skin_mask(float r, float g, float b) {
+    return skin_mask_range(r, g, b, 1.0f);
 }
 
 // ============================================================
@@ -176,9 +175,12 @@ __DEVICE__ float3 soft_squeeze(float3 rgb) {
 
 __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
 
-    if (p_red_sat == 0.0f && p_yel_sat == 0.0f && p_grn_sat == 0.0f &&
-        p_cyn_sat == 0.0f && p_blu_sat == 0.0f && p_mag_sat == 0.0f &&
-        p_skin == 0.0f && p_neg_sat >= 1.0f)
+    if (p_hue == 0.0f && p_saturation == 0.0f && p_density == 0.0f)
+        return make_float3(p_R, p_G, p_B);
+
+    float mask = skin_mask_range(p_R, p_G, p_B, p_range);
+
+    if (mask < 1e-6f)
         return make_float3(p_R, p_G, p_B);
 
     float3 lab = rgb_to_oklab(p_R, p_G, p_B);
@@ -186,38 +188,26 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     float C = _sqrtf(a * a + ob * ob);
     float H = _atan2f(ob, a);
-    float L_orig = L;
 
-    float adj = p_red_sat * hue_weight(H, HUE_RED)
-              + p_yel_sat * hue_weight(H, HUE_YELLOW)
-              + p_grn_sat * hue_weight(H, HUE_GREEN)
-              + p_cyn_sat * hue_weight(H, HUE_CYAN)
-              + p_blu_sat * hue_weight(H, HUE_BLUE)
-              + p_mag_sat * hue_weight(H, HUE_MAGENTA);
-
-    if (p_skin != 0.0f) {
-        float sm = skin_mask(p_R, p_G, p_B);
-        adj += p_skin * sm;
+    // Hue rotation (degrees to radians, scaled by mask)
+    if (p_hue != 0.0f) {
+        H += mask * p_hue * (3.14159265f / 180.0f);
     }
 
-    if (adj != 0.0f) {
-        C = _fmaxf(C * (1.0f + adj), 0.0f);
-        L *= (1.0f - adj * p_density);
+    // Saturation (chroma scale, symmetric in OKLCH)
+    if (p_saturation != 0.0f) {
+        C = _fmaxf(C * (1.0f + mask * p_saturation), 0.0f);
     }
 
-    if (p_neg_sat < 1.0f) {
-        C *= p_neg_sat;
-    }
-
-    if (p_preserve_lum > 0.0f) {
-        L = L + p_preserve_lum * (L_orig - L);
+    // Density (lightness scale)
+    if (p_density != 0.0f) {
+        L = _fmaxf(L * (1.0f - mask * p_density), 0.0f);
     }
 
     a = C * _cosf(H);
     ob = C * _sinf(H);
 
     float3 rgb = oklab_to_rgb(L, a, ob);
-
     float3 result = soft_squeeze(rgb);
     return result;
 }

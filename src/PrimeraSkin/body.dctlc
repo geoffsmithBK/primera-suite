@@ -1,0 +1,43 @@
+
+// ============================================================
+// Transform
+// ============================================================
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+
+    if (p_hue == 0.0f && p_saturation == 0.0f && p_density == 0.0f)
+        return make_float3(p_R, p_G, p_B);
+
+    float mask = skin_mask_range(p_R, p_G, p_B, p_range);
+
+    if (mask < 1e-6f)
+        return make_float3(p_R, p_G, p_B);
+
+    float3 lab = rgb_to_oklab(p_R, p_G, p_B);
+    float L = lab.x, a = lab.y, ob = lab.z;
+
+    float C = _sqrtf(a * a + ob * ob);
+    float H = _atan2f(ob, a);
+
+    // Hue rotation (degrees to radians, scaled by mask)
+    if (p_hue != 0.0f) {
+        H += mask * p_hue * (3.14159265f / 180.0f);
+    }
+
+    // Saturation (chroma scale, symmetric in OKLCH)
+    if (p_saturation != 0.0f) {
+        C = _fmaxf(C * (1.0f + mask * p_saturation), 0.0f);
+    }
+
+    // Density (lightness scale)
+    if (p_density != 0.0f) {
+        L = _fmaxf(L * (1.0f - mask * p_density), 0.0f);
+    }
+
+    a = C * _cosf(H);
+    ob = C * _sinf(H);
+
+    float3 rgb = oklab_to_rgb(L, a, ob);
+    float3 result = soft_squeeze(rgb);
+    return result;
+}

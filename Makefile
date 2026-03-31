@@ -1,13 +1,13 @@
 SRC     := src
 FRAG    := $(SRC)/frag
 
-TOOLS   := Primera PrimeraPlus PrimeraHue PrimeraSat PrimeraSplit
+TOOLS   := Primera PrimeraPlus PrimeraHue PrimeraSkin PrimeraSplit
 
 # Fragment ordering per tool
 Primera_FRAGS      := luminance hsv tf_encode tf_decode chart tone
 PrimeraPlus_FRAGS  := luminance hsv tf_encode tf_decode chart tone tetra
 PrimeraHue_FRAGS   := luminance hsv skintone tetra soft_squeeze
-PrimeraSat_FRAGS   := hsv oklab skintone soft_squeeze
+PrimeraSkin_FRAGS  := hsv oklab skintone soft_squeeze
 PrimeraSplit_FRAGS := luminance tf_encode chart
 
 LUT_DIR := /Library/Application Support/Blackmagic Design/DaVinci Resolve/LUT
