@@ -88,7 +88,7 @@ Gamut containment is done via the same "soft squeeze" described above (`tanh` in
 - The Primera tools should play nicely with most any DRT (DRT = Display Rendering Transform, the final image formulation stage prior to outputting a deliverable) but has been used/tested most with my preferred DRT, [Jed Smith's](https://github.com/jedypod) [OpenDRT](https://github.com/jedypod/open-display-transform)
 - I also regularly use/test the tools with Resolve's CST, [Juan-Pablo Zambrano's](https://github.com/JuanPabloZambrano) excellent [2499 DRT](https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT), the [ACES 2.0](https://acescentral.com) [transforms](https://github.com/aces-aswf/aces-core), and occasionally a favorite LUT
 - Note that it is possible to produce negative or otherwise out-of-range values with these tools, despite the guardrails in place. If this happens, I'd reach for gamut compression first to wrangle things back into range. If something’s really broken though, please file an issue.
-- Kaur Hendriksen made a great, [free standalone DCTL](https://store.kaurh.com) that implements the ACES 2.0 gamut compression coefficients which I can whole-heartedly recommend
+- Kaur Hendriksen made a great, [free standalone DCTL](https://store.kaurh.com) that implements the ACES 2.0 gamut compression coefficients which I can whole-heartedly recommend (Resolve's ACES Transform or Color Space Transform could also be used)
 
 
 ### Inspiration 
