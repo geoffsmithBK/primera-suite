@@ -1,8 +1,8 @@
 ## Primera Suite
 
-Primera is my personal suite of DaVinci Resolve Studio color grading DCTLs for clip-level grading and look development. Built from shared code fragments via `make`. The latest release of the ‘built’ DCTLs is always available in the sidebar at right.
+Primera is my personal suite of DaVinci Resolve Studio color grading DCTLs for clip-level grading and look development. Built from shared code fragments via `make`. The latest release of the ‘built’ DCTLs is always available in the sidebar to the right —>
 
-Most of the underlying math comes from tried-and-tested open-source DCTLs by generous members of the “color-concerned community" (see at bottom). Primera consolidates the approaches I reach for most often into one place, under one name, and with only the controls I actually use.
+Most of the underlying math comes from tried-and-tested publicly-available color science approaches and from extensively using and reading open-source DCTLs by generous members of the “color-concerned community" (see at bottom). Primera consolidates the approaches I reach for most often into one place, under one name, and with only the controls I actually use.
 
 The aesthetic lodestar is a "film look" in the broad sense, but rather than emulating any specific stock or process, I’m more chasing my personal "sense memories" of projected film. Hopefully however, these tools are flexible enough to achieve any number of looks/styles.
 
