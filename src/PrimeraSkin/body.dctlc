@@ -39,6 +39,9 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
     float mask = skin_mask_range(r, g, b, p_range);
 
+    if (p_show_mask == 1)
+        return make_float3(mask, mask, mask);
+
     if (mask < 1e-6f && p_compress == 0.0f)
         return make_float3(r, g, b);
 
