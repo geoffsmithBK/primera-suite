@@ -9,6 +9,7 @@ DEFINE_UI_PARAMS(p_hue, Hue, DCTLUI_SLIDER_FLOAT, 0.0, -30.0, 30.0, 0.1)
 DEFINE_UI_PARAMS(p_saturation, Saturation, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
 DEFINE_UI_PARAMS(p_density, Density, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
 DEFINE_UI_PARAMS(p_range, Range, DCTLUI_SLIDER_FLOAT, 1.0, 0.25, 2.0, 0.01)
+DEFINE_UI_PARAMS(p_compress, Compression, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.001)
 
 // ============================================================
 // HSV conversion
@@ -175,37 +176,68 @@ __DEVICE__ float3 soft_squeeze(float3 rgb) {
 
 __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
 
-    if (p_hue == 0.0f && p_saturation == 0.0f && p_density == 0.0f)
+    if (p_hue == 0.0f && p_saturation == 0.0f && p_density == 0.0f && p_compress == 0.0f)
         return make_float3(p_R, p_G, p_B);
 
-    float mask = skin_mask_range(p_R, p_G, p_B, p_range);
+    float r = p_R, g = p_G, b = p_B;
 
-    if (mask < 1e-6f)
-        return make_float3(p_R, p_G, p_B);
+    // Hue compression: pull skin-adjacent hues toward center (HSV domain)
+    // Uses a slightly broader mask for detection; pull is proportional to
+    // hue distance from center, so pixels already on the skin line barely
+    // move while fringe pixels get a smooth, graduated pull inward.
+    if (p_compress > 0.0f) {
+        float compress_range = p_range + 0.43f;
+        float cmask = skin_mask_range(r, g, b, compress_range);
 
-    float3 lab = rgb_to_oklab(p_R, p_G, p_B);
+        if (cmask > 1e-6f) {
+            float3 hsv = rgb_to_hsv(make_float3(r, g, b));
+
+            float d = hsv.x - SKIN_HUE_CENTER;
+            if (d > 0.5f) d -= 1.0f;
+            if (d < -0.5f) d += 1.0f;
+
+            d *= (1.0f - p_compress * cmask);
+            hsv.x = SKIN_HUE_CENTER + d;
+            if (hsv.x < 0.0f) hsv.x += 1.0f;
+            if (hsv.x > 1.0f) hsv.x -= 1.0f;
+
+            float3 rgb_new = hsv_to_rgb(hsv);
+            r = rgb_new.x;
+            g = rgb_new.y;
+            b = rgb_new.z;
+        }
+    }
+
+    float mask = skin_mask_range(r, g, b, p_range);
+
+    if (mask < 1e-6f && p_compress == 0.0f)
+        return make_float3(r, g, b);
+
+    float3 lab = rgb_to_oklab(r, g, b);
     float L = lab.x, a = lab.y, ob = lab.z;
 
     float C = _sqrtf(a * a + ob * ob);
     float H = _atan2f(ob, a);
 
-    // Hue rotation (degrees to radians, scaled by mask)
-    if (p_hue != 0.0f) {
-        H += mask * p_hue * (3.14159265f / 180.0f);
-    }
+    if (mask > 1e-6f) {
+        // Hue rotation (degrees to radians, scaled by mask)
+        if (p_hue != 0.0f) {
+            H += mask * p_hue * (3.14159265f / 180.0f);
+        }
 
-    // Saturation (chroma scale, symmetric in OKLCH)
-    if (p_saturation != 0.0f) {
-        C = _fmaxf(C * (1.0f + mask * p_saturation), 0.0f);
-    }
+        // Saturation (chroma scale, symmetric in OKLCH)
+        if (p_saturation != 0.0f) {
+            C = _fmaxf(C * (1.0f + mask * p_saturation), 0.0f);
+        }
 
-    // Density (lightness scale)
-    if (p_density != 0.0f) {
-        L = _fmaxf(L * (1.0f - mask * p_density), 0.0f);
-    }
+        // Density (lightness scale)
+        if (p_density != 0.0f) {
+            L = _fmaxf(L * (1.0f - mask * p_density), 0.0f);
+        }
 
-    a = C * _cosf(H);
-    ob = C * _sinf(H);
+        a = C * _cosf(H);
+        ob = C * _sinf(H);
+    }
 
     float3 rgb = oklab_to_rgb(L, a, ob);
     float3 result = soft_squeeze(rgb);
