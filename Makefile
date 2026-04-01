@@ -1,11 +1,10 @@
 SRC     := src
 FRAG    := $(SRC)/frag
 
-TOOLS   := Primera PrimeraPlus PrimeraHue PrimeraSkin PrimeraSplit
+TOOLS   := Primera PrimeraHue PrimeraSkin PrimeraSplit
 
 # Fragment ordering per tool
 Primera_FRAGS      := luminance hsv tf_encode tf_decode chart tone
-PrimeraPlus_FRAGS  := luminance hsv tf_encode tf_decode chart tone tetra
 PrimeraHue_FRAGS   := luminance hsv skintone tetra soft_squeeze
 PrimeraSkin_FRAGS  := hsv oklab skintone soft_squeeze
 PrimeraSplit_FRAGS := luminance tf_encode chart
