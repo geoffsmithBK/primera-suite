@@ -14,10 +14,10 @@ LUT_DIR := /Library/Application Support/Blackmagic Design/DaVinci Resolve/LUT
 .PHONY: all dev clean install install-dev release
 
 all: OUTDIR := Primera
-all: $(TOOLS)
+all: $(TOOLS) extras
 
 dev: OUTDIR := 0_Primera
-dev: $(TOOLS)
+dev: $(TOOLS) extras
 
 define TOOL_RULE
 .PHONY: $(1)
@@ -27,6 +27,12 @@ $(1):
 endef
 
 $(foreach t,$(TOOLS),$(eval $(call TOOL_RULE,$(t))))
+
+.PHONY: extras
+extras:
+	@mkdir -p $(OUTDIR)
+	cp $(SRC)/delimiter.dctl "$(OUTDIR)/---Primera---.dctl"
+	cp LICENSE "$(OUTDIR)/LICENSE"
 
 install: all
 	cp -r Primera "$(LUT_DIR)/"

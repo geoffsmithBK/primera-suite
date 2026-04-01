@@ -1,4 +1,4 @@
-// PrimeraSkin v0.3.0
+// PrimeraSkin v0.3.2
 // https://github.com/geoffsmithBK/primera-suite
 
 // ============================================================
@@ -10,6 +10,7 @@ DEFINE_UI_PARAMS(p_saturation, Saturation, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 
 DEFINE_UI_PARAMS(p_density, Density, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
 DEFINE_UI_PARAMS(p_range, Range, DCTLUI_SLIDER_FLOAT, 1.0, 0.25, 2.0, 0.01)
 DEFINE_UI_PARAMS(p_compress, Compression, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_show_mask, Show Mask, DCTLUI_CHECK_BOX, 0)
 
 // ============================================================
 // HSV conversion
@@ -209,6 +210,9 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     }
 
     float mask = skin_mask_range(r, g, b, p_range);
+
+    if (p_show_mask == 1)
+        return make_float3(mask, mask, mask);
 
     if (mask < 1e-6f && p_compress == 0.0f)
         return make_float3(r, g, b);
