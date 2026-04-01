@@ -1,10 +1,10 @@
 ## Primera Suite
 
-Primera is my personal suite of DaVinci Resolve Studio color grading DCTLs for clip-level grading and look development. Built from shared code fragments via `make`. The latest release of the ‘built’ DCTLs is always available in the sidebar to the right —>
+Primera is my personal suite of DaVinci Resolve Studio color grading DCTLs for both clip-level grading and some aspects of look development. The DCTLs are built from shared code fragments via `make` and the latest release of the built DCTLs is always available in the sidebar to the right as a .zip file —>
 
-Most of the underlying math comes from tried-and-tested publicly-available color science approaches and from extensively using and reading open-source DCTLs by generous members of the “color-concerned community" (see at bottom). Primera consolidates the approaches I reach for most often into one place, under one name, and with only the controls I actually use.
+Most of the underlying math comes from tried-and-tested publicly-available imaging science approaches and from my own extensive use of open-source DCTLs by many generous members of the “color-concerned community" (see at bottom). Primera consolidates the approaches I reach for most often into one place, under one name, and with only the controls I actually use.
 
-The aesthetic lodestar is a "film look" in the broad sense, but rather than emulating any specific stock or process, I’m more chasing my personal "sense memories" of projected film. Hopefully however, these tools are flexible enough to achieve any number of looks/styles.
+My personal aesthetic lodestar is still a "film look," in the broad sense, but rather than emulating any specific stock or process (with one exception), I’m more chasing my personal past and on-going "sense memories" of seeing and working with film. But hopefully the tools are flexible enough to achieve most any look/style.
 
 
 ### Primera
@@ -13,7 +13,7 @@ The aesthetic lodestar is a "film look" in the broad sense, but rather than emul
   <img src="img/Primera.png">
 </p>
 
-`Primera.dctl` is the foundational tool, providing primary grading controls for shot-to-shot balancing:
+`Primera.dctl` is the foundation and provides primary grading controls for shot-to-shot balancing:
 
 - **Exposure** — Linear gain in photographic stops (`2^n`) applied before the selected transfer function
 - **Black Point** — Smooth compression of the darkest tones approaching black (sometimes called "flare," e.g. in Baselight)
@@ -22,10 +22,11 @@ The aesthetic lodestar is a "film look" in the broad sense, but rather than emul
 - **Shadows / Highlights** — Linear gain constrained below/above mid-grey; no spatial operations so can be encoded in a 3D LUT
 - **Roll Off** — `tanh` highlight compression controlling where the brightest values top out; works with Highlights to shape/compress the shoulder
 - **Neg. Saturation** — Multiplicative negative RGB gain on chroma (only darkens)
-- **Pos. Saturation** — HSV-based saturation boost (the 'S' "channel"), positive only; adds "density"
+- **Pos. Saturation** — HSV-based saturation boost (gain on the 'S' "channel"), positive only; adds "density"
 - **Preserve Luma** — weighted offset of the darkening effect from both saturation controls
-- **Show Chart** — draws a per-transfer-function step chart graduated in stops a là [Walter Volpatto's example](https://youtu.be/ymr4wyo7GcA?t=3665)
+- **Show Chart** — draws a per-transfer-function step chart graduated in stops a la [Walter Volpatto's example](https://youtu.be/ymr4wyo7GcA?t=3665)
 - **Transfer Function** — for now, only the ones I encounter most in my day-to-day: LogC3, LogC4, REDLog3G10, S-Log3, ACEScct, DaVinci Intermediate, and Kodak Cineon
+
 
 ### Primera Hue
 
@@ -58,7 +59,7 @@ The aesthetic lodestar is a "film look" in the broad sense, but rather than emul
 - **Ramp Position** — positions the greyscale ramp vertically (such as for desqueezed anamorphic shots)
 - **Show Curve** — shows an RGB representation of the the current slider states
 - **Show Pivot** — visualizes the position of the pivot point and transition softness
-- **Show Chart** — draws a per-transfer-function step chart graduated in stops a là [Walter Volpatto's example](https://youtu.be/ymr4wyo7GcA?t=3665) and prints the curve name and 18% grey value over a rectangle of the value
+- **Show Chart** — draws a per-transfer-function step chart graduated in stops a la [Walter Volpatto's example](https://youtu.be/ymr4wyo7GcA?t=3665) and prints the curve name and 18% grey value over a rectangle of the value
 - **Transfer Function** — Aligns **Pivot** to the appropriate mid-grey point
 
 
@@ -82,11 +83,13 @@ Gamut containment is done via the same "soft squeeze" described above (`tanh` in
 
 ### Notes
 
-- Maybe/hopefully it goes without saying, at this point, but the Primera tools are meant to be used in the context of a fully color-managed workflow. See [here](https://www.youtube.com/watch?v=JpRuQQ__-YA) for a good primer.
-- The Primera tools should play nicely with most DRTs (DRT = Display Rendering Transform, the final image formulation stage prior to outputting a deliverable) but has been used/tested most with my preferred DRT, [Jed Smith](https://github.com/jedypod)'s [OpenDRT](https://github.com/jedypod/open-display-transform)
-- I also regularly use/test the tools with Resolve's CST, [Juan-Pablo Zambrano](https://github.com/JuanPabloZambrano)'s excellent [2499 DRT](https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT), the [ACES 2.0](https://acescentral.com) [transforms](https://github.com/aces-aswf/aces-core), and occasionally a favorite LUT
-- Note that it is possible to produce negative or otherwise out-of-range values with these tools, despite the guardrails in place. When this happens, I reach for gamut compression first to help contain things over and above the containment described above/throughout
+- For the curious, the math used in the Primera tools is available in both [`typst`](./doc/primera-math.typ) and [PDF](./doc/primera-math.pdf) (feedback welcome)
+- Maybe/hopefully it goes without saying, at this point, but the Primera tools are meant to be used in the context of a fully color-managed workflow. See [here](https://www.youtube.com/watch?v=JpRuQQ__-YA) for a decent primer.
+- The Primera tools should play nicely with most any DRT (DRT = Display Rendering Transform, the final image formulation stage prior to outputting a deliverable) but has been used/tested most with my preferred DRT, [Jed Smith's](https://github.com/jedypod) [OpenDRT](https://github.com/jedypod/open-display-transform)
+- I also regularly use/test the tools with Resolve's CST, [Juan-Pablo Zambrano's](https://github.com/JuanPabloZambrano) excellent [2499 DRT](https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT), the [ACES 2.0](https://acescentral.com) [transforms](https://github.com/aces-aswf/aces-core), and occasionally a favorite LUT
+- Note that it is possible to produce negative or otherwise out-of-range values with these tools, despite the guardrails in place. If this happens, I'd reach for gamut compression first to wrangle things back into range. If something’s really broken though, please file an issue.
 - Kaur Hendriksen made a great, [free standalone DCTL](https://store.kaurh.com) that implements the ACES 2.0 gamut compression coefficients which I can whole-heartedly recommend
+
 
 ### Inspiration 
 
