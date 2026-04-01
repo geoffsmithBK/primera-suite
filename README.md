@@ -9,7 +9,9 @@ The aesthetic lodestar is a "film look" in the broad sense, but rather than emul
 
 ### Primera
 
-![Primera](img/Primera.png)
+<p align="center">
+  <img src="img/Primera.png">
+</p>
 
 `Primera.dctl` is the foundational tool, providing primary grading controls for shot-to-shot balancing:
 
@@ -27,7 +29,9 @@ The aesthetic lodestar is a "film look" in the broad sense, but rather than emul
 
 ### Primera Hue
 
-![PrimeraHue](img/PrimeraHue.png)
+<p align="center">
+  <img src="img/PrimeraHue.png">
+</p>
 
 `PrimeraHue.dctl` performs per-channel hue and density control via tetrahedral interpolation, based on [hotgluebanjo](https://github.com/hotgluebanjo/TetraInterp-DCTL)’s DCTL implementation of the approach described by Steve Yedlin ASC in his [DisplayPrep](https://www.yedlin.net/DisplayPrepDemo/index.html) demo (2018)
 
@@ -42,7 +46,9 @@ The aesthetic lodestar is a "film look" in the broad sense, but rather than emul
 
 ### Primera Split
 
-![PrimeraSplit](img/PrimeraSplit.png)
+<p align="center">
+  <img src="img/PrimeraSplit.png">
+</p>
 
 `PrimeraSplit.dctl` provides subtractive color split-toning for imbuing shadows and highlights with (typically) contrasting color casts. Lately conceptualized less as an ‘effect' and more a fundamental look development tool, defining the chroma dimensions of the characteristic curve.
 
@@ -58,7 +64,9 @@ The aesthetic lodestar is a "film look" in the broad sense, but rather than emul
 
 ### Primera Skin
 
-![PrimeraSkin](img/PrimeraSkin.png)
+<p align="center">
+  <img src="img/PrimeraSkin.png">
+</p>
 
 `PrimeraSkin.dctl` is a dedicated skintone 'sculpting' tool operating in the OKLCH color model. Targets a soft region of the HSV disc centered on the nominal skin tone hue (~28° counter-clockwise) and applies perceptually uniform adjustments within that region. Everything outside the mask passes through untouched.
 
