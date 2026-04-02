@@ -1,10 +1,11 @@
+
 <p align="center">
   <img src="img/header_pie_ltype.png">
 </p>
 
 ## Primera Suite
 
-Primera is my personal suite of [DaVinci Resolve Studio](https://www.blackmagicdesign.com/products/davinciresolve) color grading DCTLs for both clip-level grading and some aspects of look development. The DCTLs are built via reusable code fragments via `make` (+ plenty of help from Claude). The latest release of the built DCTLs is always available in the sidebar to the right as a .zip file —>
+Primera is [my](https://www.linkedin.com/in/geoffsm) personal suite of [DaVinci Resolve Studio](https://www.blackmagicdesign.com/products/davinciresolve) color grading DCTLs for both clip-level grading and some aspects of look development. The DCTLs are built via reusable code fragments via `make` (+ plenty of help from Claude). The latest release of the built DCTLs is always available in the sidebar to the right as a .zip file —>
 
 Most of the underlying math comes from tried-and-tested publicly-available imaging science approaches and from my own extensive use of open-source DCTLs by many generous members of the “color-concerned community" (see at bottom). Primera consolidates the approaches I reach for most often into one place, under one name, and with only the controls I actually use.
 
@@ -73,7 +74,7 @@ My personal aesthetic lodestar is still a "film look," in the broad sense, but r
   <img src="img/PrimeraSkin.png">
 </p>
 
-`PrimeraSkin.dctl` is a dedicated skintone 'sculpting' tool operating in the OKLCH color model. Targets a soft region of the HSV disc centered on the nominal skin tone hue (~28° counter-clockwise) and applies perceptually uniform adjustments within that region. Everything outside the mask passes through untouched.
+`PrimeraSkin.dctl` is a dedicated skintone 'sculpting' tool operating in the OKLCH color model. It targets a "fuzzy pie slice" of the HSV disc centered on the nominal skin tone hue (~28° counter-clockwise) and applies perceptually uniform adjustments within that region. Everything outside the mask passes through untouched.
 
 - **Hue** — Rotates skin hue in OKLCH (+/-30°)
 - **Saturation** — Scales chroma symmetrically; both positive and negative directions stay in OKLCH for consistent behavior with no hue shift
