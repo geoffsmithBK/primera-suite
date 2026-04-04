@@ -57,9 +57,9 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     if (mask > 1e-6f) {
         float3 hsv = rgb_to_hsv(make_float3(r, g, b));
 
-        // Hue rotation
+        // Hue rotation (slider direction matches legend: left = cyan, right = magenta)
         if (p_hue != 0.0f) {
-            hsv.x += mask * p_hue / 360.0f;
+            hsv.x -= mask * p_hue / 360.0f;
             if (hsv.x < 0.0f) hsv.x += 1.0f;
             if (hsv.x > 1.0f) hsv.x -= 1.0f;
         }
