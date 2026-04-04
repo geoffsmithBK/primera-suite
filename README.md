@@ -44,8 +44,8 @@ My personal aesthetic lodestar is still a "film look," in the broad sense, but r
 - **6 Hue sliders** (R/Y/G/C/B/M) — Each pushes a color toward/away from its neighbors via Rodrigues rotation around each corner's achromatic axis. +/-60° per channel covers the full 360°
 - **6 Density sliders** — Makes the shifted color subjectively more "colorful" without adding energy
 - **Preserve Luma** — Scales output to a nominal level before density adjustment. Runs before Cinecolor (see below)
-- **Hard Clamp** — Clips to [0,1] before interpolation
 - **Soft Clamp** — `tanh` in the shoulder + exponential compression in the toe after interpolation to softly limit range excursion
+- **Hard Clamp** — Clips to [0,1] before interpolation; both clamping schemes can be applied at the same time ("all the clamps")
 - **Cinecolor** — emulates a [budget color process](https://www.youtube.com/watch?v=dnNeKxt0urk) (~late '30s-early '50s), similar to Technicolor Process 2, that used bipacked (contact exposure) ortho negatives and duplitized print stock (emulsion on both sides of the base); here for you now in the 2020s without the registration nightmares
 - **Protect Skintones** — Applies only to Cinecolor. Creates a holdout matte centered on the skintone indicator (~28° on an HSV disc) with smooth falloff
 
@@ -56,15 +56,15 @@ My personal aesthetic lodestar is still a "film look," in the broad sense, but r
   <img src="img/PrimeraSplit.png">
 </p>
 
-`PrimeraSplit.dctl` provides subtractive color split-toning for imbuing shadows and highlights with (typically) contrasting color casts. Lately conceptualized less as an ‘effect' and more a fundamental look development tool, defining the chroma dimensions of the characteristic curve.
+`PrimeraSplit.dctl` provides subtractive color split-toning for imbuing shadows and highlights with (usually) contrasting color casts. Lately conceptualized less as an ‘effect' and more a fundamental look development tool, defining the chroma dimensions of the characteristic curve.
 
 - **Mid-Grey Pivot** — Defaults to the selected transfer function's mid-grey (but should be set purely by eye)
 - **Transition Softness** — self-explanatory
 - **Preserve Luminance** — as in Primera and PrimeraHue
-- **Ramp Position** — positions the greyscale ramp vertically (such as for desqueezed anamorphic shots)
-- **Show Curve** — shows an RGB representation of the the current slider states
+- **Ramp Position** — positions the greyscale ramp vertically (useful when blanking has been applied)
+- **Show Curve** — shows an RGB curves representation of the the current slider states
 - **Show Pivot** — visualizes the position of the pivot point and transition softness
-- **Show Chart** — draws a per-transfer-function step chart graduated in stops a la [Walter Volpatto's example](https://youtu.be/ymr4wyo7GcA?t=3665) and prints the curve name and 18% grey value over a rectangle of the value
+- **Show Chart** — draws a per-transfer-function step chart graduated in stops a la [Walter Volpatto's example](https://youtu.be/ymr4wyo7GcA?t=3665); prints the curve name and 18% grey value over a rectangle of the same value
 - **Transfer Function** — Aligns **Pivot** to the appropriate mid-grey point
 
 
@@ -74,17 +74,18 @@ My personal aesthetic lodestar is still a "film look," in the broad sense, but r
   <img src="img/PrimeraSkin.png">
 </p>
 
-`PrimeraSkin.dctl` is a dedicated skintone sculpting tool operating entirely in HSV, making it encoding-agnostic — it works the same on log-encoded timelines regardless of the camera's transfer function. It targets a "fuzzy pie slice" of the HSV disc centered on the nominal skin tone hue (~28°) and applies adjustments within that region. Everything outside the mask passes through untouched.
+`PrimeraSkin.dctl` is a dedicated skintone sculpting tool operating in HSV. Meant for log-based timelines (any camera's log or log/log-like working spaces like DaVinci Wide Gamut/Intermediate or ACEScct). Targets a "fuzzy pie slice" of the HSV disc centered on the nominal skin tone hue angle (~28°) and applies adjustments within that region. Everything outside the mask passes through untouched.
 
 - **Hue** — Rotates skin hue (+/-20°)
-- **Saturation** — Scales HSV saturation within the mask
+- **Saturation** — Scales HSV saturation within the mask (gain on the 'S' "channel")
 - **Density** — Adjusts value/brightness (positive = darker)
 - **Range** — Widens or narrows the skin mask (0.25 = tight, 2.0 = broad)
-- **Evenness** — Compresses outlier hues toward the skin center; meant to emulate HMU evening-out talent skintones on set during shooting
+- **Evenness** — Compresses hues toward the skin center; meant to emulate HMU evening-out talent skintones on set during shooting
 - **Low Gate / High Gate** — Value-based gates that exclude dark or bright pixels from the mask (useful for protecting shadows and specular highlights)
 - **Show Mask** — Three-zone false-color overlay showing skin qualification: gold = in zone, red = hue too far clockwise, cyan = hue too far counter-clockwise
+- **Legend** — displays color-coded blocks corresponding to each false color zone; 'Gr' (green) = hue too far counterclockwise; 'Sk' (gold) = in the skin zone; 'Rm' (red-magenta) = hue too far clockwise
 
-Gamut containment is done via the same "soft squeeze" described above (`tanh` in the shoulder/exponential compression in the toe).
+Gamut containment is done via the same "soft squeeze" described above (`tanh` in the shoulder/exponential compression in the toe). I don't use this on every shot but it can be handy for "surgical" chroma operations targeting skintones without resorting to spatial tools.
 
 
 ### Notes
@@ -99,7 +100,7 @@ Gamut containment is done via the same "soft squeeze" described above (`tanh` in
 
 ### Inspiration 
 
-There's not much particularly original in the Primera tools, as I said they're more of a curated/opinionated collection of my favorite approaches to primary grading and some aspects of look development. In no particular order, Primera owes 90%+ of its existence to the work of the following individuals:
+There's not much particularly original in the Primera tools, like I said they're more of a curated/opinionated collection of my favorite approaches to primary grading and some aspects of look development. In no particular order, Primera owes 90%+ of its existence to the work of the following individuals:
 
 - [Jed Smith](https://github.com/jedypod)
 - [Juan Pablo Zambrano](https://github.com/JuanPabloZambrano)
