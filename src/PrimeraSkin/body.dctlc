@@ -8,12 +8,12 @@
 
 __DEVICE__ int legend_glyph_row(int ch, int row) {
     switch (ch) {
-        case 'G': return (row==0||row==6)?31:row<=2?24:27;
-        case 'r': return row<=1?0:row==2?11:row==3?12:8;
+        case 'C': return (row==0||row==6)?31:24;
+        case 'y': return row<=1?0:row==2?27:row==3?14:row==4?4:row==5?8:(row==6?14:0);
         case 'S': return (row==0||row==3||row==6)?31:row<3?24:3;
         case 'k': return row<=1?16:row==2?22:row==3?28:row==4?24:row==5?20:18;
-        case 'R': return (row==0||row==3)?31:row<=2?27:row==4?26:25;
-        case 'm': return row<=1?0:row==2?27:21;
+        case 'M': return row==0?17:row<=2?27:row==3?21:17;
+        case 'g': return row<=1?0:row==2?14:row<=4?27:(row==5?3:14);
         default:  return 0;
     }
 }
@@ -81,14 +81,16 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     }
 
     // --- Show Mask: three-zone false-color overlay ---
-    // Rendered AFTER adjustments so sliders visibly affect the mask
+    // Zone color from ORIGINAL hues (stable classification);
+    // mask strength from ADJUSTED pixels (shows slider effect via intensity)
     if (p_show_mask == 1) {
         float vmask = skin_mask_gated(r, g, b, p_range, p_lo_gate, p_hi_gate);
-        float3 hsv_vis = rgb_to_hsv(make_float3(r, g, b));
-        float grey = hsv_vis.z;
+        float3 hsv_adj = rgb_to_hsv(make_float3(r, g, b));
+        float grey = hsv_adj.z;
 
-        // Signed hue distance: negative = toward red, positive = toward green
-        float hd = hsv_vis.x - SKIN_HUE_CENTER;
+        // Zone from original pixel hue — stable regardless of Hue slider
+        float3 hsv_orig = rgb_to_hsv(make_float3(p_R, p_G, p_B));
+        float hd = hsv_orig.x - SKIN_HUE_CENTER;
         if (hd > 0.5f) hd -= 1.0f;
         if (hd < -0.5f) hd += 1.0f;
 
@@ -97,23 +99,25 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         if (zone < -1.0f) zone = -1.0f;
         if (zone > 1.0f) zone = 1.0f;
 
-        // Bold palette: red(-1) → gold(0) → cyan(+1)
-        float tr, tg, tb;
+        // Multiplicative chroma: preserves luminance structure, consistent saturation
+        // gold(0): R↑ G↑ B↓   magenta(-1): R↑ G↓ B↑   cyan(+1): R↓ G↑ B↑
+        float gr, gg, gb;
         if (zone <= 0.0f) {
             float t = -zone;
-            tr = 0.18f + t * 0.12f;
-            tg = 0.12f - t * 0.20f;
-            tb = -0.06f - t * 0.06f;
+            gr = 1.4f;
+            gg = 1.3f - t * 0.8f;
+            gb = 0.5f + t * 0.8f;
         } else {
             float t = zone;
-            tr = 0.18f - t * 0.28f;
-            tg = 0.12f + t * 0.10f;
-            tb = -0.06f + t * 0.18f;
+            gr = 1.4f - t * 0.9f;
+            gg = 1.3f;
+            gb = 0.5f + t * 0.8f;
         }
 
-        float mr = grey + vmask * tr;
-        float mg = grey + vmask * tg;
-        float mb = grey + vmask * tb;
+        // Apply gain scaled by mask strength (1.0 = no effect when vmask=0)
+        float mr = grey * (1.0f + vmask * (gr - 1.0f));
+        float mg = grey * (1.0f + vmask * (gg - 1.0f));
+        float mb = grey * (1.0f + vmask * (gb - 1.0f));
 
         // --- Legend strip at bottom of frame ---
         if (p_legend == 1) {
@@ -123,15 +127,20 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
                 int third = (int)(x_norm * 3.0f);
                 if (third > 2) third = 2;
 
+                // Same gains as mask overlay at full strength over legend base grey
                 float base = 0.38f;
-                float lr, lg, lb;
+                float lgr, lgg, lgb;
                 if (third == 0) {
-                    lr = base - 0.10f; lg = base + 0.22f; lb = base + 0.12f;
+                    lgr = 0.5f; lgg = 1.3f; lgb = 1.3f;
                 } else if (third == 1) {
-                    lr = base + 0.18f; lg = base + 0.12f; lb = base - 0.06f;
+                    lgr = 1.4f; lgg = 1.3f; lgb = 0.5f;
                 } else {
-                    lr = base + 0.30f; lg = base - 0.08f; lb = base - 0.12f;
+                    lgr = 1.4f; lgg = 0.5f; lgb = 1.3f;
                 }
+
+                float lr = base * lgr;
+                float lg = base * lgg;
+                float lb = base * lgb;
 
                 int cell = p_Height / 100;
                 if (cell < 2) cell = 2;
@@ -155,13 +164,13 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
                         int cy = (p_Y - text_top) / cell;
                         if (cx < 5) {
                             int ch = 0;
-                            if (third == 0) { ch = ci == 0 ? 'G' : 'r'; }
+                            if (third == 0) { ch = ci == 0 ? 'C' : 'y'; }
                             else if (third == 1) { ch = ci == 0 ? 'S' : 'k'; }
-                            else { ch = ci == 0 ? 'R' : 'm'; }
+                            else { ch = ci == 0 ? 'M' : 'g'; }
 
                             int gmask = legend_glyph_row(ch, cy);
                             if ((gmask >> (4 - cx)) & 1) {
-                                lr += 0.12f; lg += 0.12f; lb += 0.12f;
+                                lr = 0.75f; lg = 0.75f; lb = 0.75f;
                             }
                         }
                     }
