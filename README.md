@@ -30,7 +30,7 @@ My personal aesthetic lodestar is still a "film look," in the broad sense, but r
 - **Pos. Saturation** — HSV-based saturation boost (gain on the 'S' "channel"), positive only; adds "density"
 - **Preserve Luma** — weighted offset of the darkening effect from both saturation controls
 - **Show Chart** — draws a per-transfer-function step chart graduated in stops a la [Walter Volpatto's example](https://youtu.be/ymr4wyo7GcA?t=3665)
-- **Transfer Function** — for now, only the ones I encounter most in my day-to-day: LogC3, LogC4, REDLog3G10, S-Log3, ACEScct, DaVinci Intermediate, and Kodak Cineon
+- **Transfer Function** — for now, only the ones I encounter most in my day-to-day: LogC3, LogC4, REDLog3G10, S-Log3, ACEScct, DaVinci Intermediate, Kodak Cineon, and Fuji F-Log2
 
 
 ### Primera Hue

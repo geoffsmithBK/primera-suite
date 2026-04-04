@@ -1,4 +1,4 @@
-// PrimeraHue v0.3.2
+// PrimeraHue v0.5.0
 // https://github.com/gsmith/Primera-DCTL
 
 // ============================================================
@@ -106,13 +106,32 @@ __DEVICE__ float skin_mask_range(float r, float g, float b, float range) {
     float width = SKIN_HUE_WIDTH * range;
     float dist = hue_distance(h, SKIN_HUE_CENTER);
     float hue_gate = 1.0f - smoothstep(0.0f, width, dist);
-    float sat_gate = smoothstep(0.1f, 0.25f, s);
+    float sat_gate = smoothstep(0.08f, 0.35f, s);
 
     return hue_gate * sat_gate;
 }
 
 __DEVICE__ float skin_mask(float r, float g, float b) {
     return skin_mask_range(r, g, b, 1.0f);
+}
+
+__DEVICE__ float skin_mask_gated(float r, float g, float b, float range, float lo, float hi) {
+    float3 hsv = rgb_to_hsv(make_float3(r, g, b));
+    float h = hsv.x;
+    float s = hsv.y;
+    float v = hsv.z;
+
+    if (s < 1e-6f || v < 1e-6f) return 0.0f;
+
+    float width = SKIN_HUE_WIDTH * range;
+    float dist = hue_distance(h, SKIN_HUE_CENTER);
+    float hue_gate = 1.0f - smoothstep(0.0f, width, dist);
+    float sat_gate = smoothstep(0.08f, 0.35f, s);
+
+    float lo_gate = (lo > 0.001f) ? smoothstep(lo * 0.5f, lo, v) : 1.0f;
+    float hi_gate = (hi < 0.999f) ? 1.0f - smoothstep(hi - (1.0f - hi) * 0.5f, hi, v) : 1.0f;
+
+    return hue_gate * sat_gate * lo_gate * hi_gate;
 }
 
 // ============================================================

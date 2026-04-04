@@ -50,7 +50,7 @@ __DEVICE__ float skin_mask_gated(float r, float g, float b, float range, float l
     float sat_gate = smoothstep(0.08f, 0.35f, s);
 
     float lo_gate = (lo > 0.001f) ? smoothstep(lo * 0.5f, lo, v) : 1.0f;
-    float hi_gate = (hi < 0.999f) ? 1.0f - smoothstep(hi, hi + (1.0f - hi) * 0.5f, v) : 1.0f;
+    float hi_gate = (hi < 0.999f) ? 1.0f - smoothstep(hi - (1.0f - hi) * 0.5f, hi, v) : 1.0f;
 
     return hue_gate * sat_gate * lo_gate * hi_gate;
 }

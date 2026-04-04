@@ -1,15 +1,17 @@
-// PrimeraSkin v0.3.2
+// PrimeraSkin v0.5.0
 // https://github.com/geoffsmithBK/primera-suite
 
 // ============================================================
 // UI Parameters
 // ============================================================
 
-DEFINE_UI_PARAMS(p_hue, Hue, DCTLUI_SLIDER_FLOAT, 0.0, -30.0, 30.0, 0.1)
-DEFINE_UI_PARAMS(p_saturation, Saturation, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
-DEFINE_UI_PARAMS(p_density, Density, DCTLUI_SLIDER_FLOAT, 0.0, -0.050, 0.050, 0.001)
+DEFINE_UI_PARAMS(p_hue, Hue, DCTLUI_SLIDER_FLOAT, 0.0, -20.0, 20.0, 0.1)
+DEFINE_UI_PARAMS(p_saturation, Saturation, DCTLUI_SLIDER_FLOAT, 0.0, -0.5, 0.5, 0.001)
+DEFINE_UI_PARAMS(p_density, Density, DCTLUI_SLIDER_FLOAT, 0.0, -0.2, 0.2, 0.001)
 DEFINE_UI_PARAMS(p_range, Range, DCTLUI_SLIDER_FLOAT, 1.0, 0.25, 2.0, 0.01)
-DEFINE_UI_PARAMS(p_compress, Compression, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_evenness, Evenness, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_lo_gate, Low Gate, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 0.5, 0.001)
+DEFINE_UI_PARAMS(p_hi_gate, High Gate, DCTLUI_SLIDER_FLOAT, 1.0, 0.5, 1.0, 0.001)
 DEFINE_UI_PARAMS(p_show_mask, Show Mask, DCTLUI_CHECK_BOX, 0)
 
 // ============================================================
@@ -56,64 +58,6 @@ __DEVICE__ float3 hsv_to_rgb(float3 hsv) {
 }
 
 // ============================================================
-// OKLab / OKLCH
-// ============================================================
-
-#define HUE_RED      0.5444f
-#define HUE_YELLOW   1.9172f
-#define HUE_GREEN    2.4853f
-#define HUE_CYAN    -2.8570f
-#define HUE_BLUE    -1.6886f
-#define HUE_MAGENTA -0.5557f
-
-#define HUE_WIDTH    1.0471975512f
-#define PI           3.14159265f
-#define TWO_PI       6.28318530f
-
-__DEVICE__ float cbrtf_safe(float x) {
-    return _copysignf(_powf(_fabs(x), 0.333333333f), x);
-}
-
-__DEVICE__ float3 rgb_to_oklab(float r, float g, float b) {
-    float l = 0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b;
-    float m = 0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b;
-    float s = 0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b;
-
-    l = cbrtf_safe(l);
-    m = cbrtf_safe(m);
-    s = cbrtf_safe(s);
-
-    return make_float3(
-        0.2104542553f * l + 0.7936177850f * m - 0.0040720468f * s,
-        1.9779984951f * l - 2.4285922050f * m + 0.4505937099f * s,
-        0.0259040371f * l + 0.7827717662f * m - 0.8086757660f * s);
-}
-
-__DEVICE__ float3 oklab_to_rgb(float L, float a, float ob) {
-    float l = L + 0.3963377774f * a + 0.2158037573f * ob;
-    float m = L - 0.1055613458f * a - 0.0638541728f * ob;
-    float s = L - 0.0894841775f * a - 1.2914855480f * ob;
-
-    l = l * l * l;
-    m = m * m * m;
-    s = s * s * s;
-
-    return make_float3(
-         4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s,
-        -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s,
-        -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s);
-}
-
-__DEVICE__ float hue_weight(float h, float center) {
-    float d = h - center;
-    if (d > PI) d -= TWO_PI;
-    if (d < -PI) d += TWO_PI;
-    d = _fabs(d);
-    if (d >= HUE_WIDTH) return 0.0f;
-    return 0.5f * (1.0f + _cosf(d * PI / HUE_WIDTH));
-}
-
-// ============================================================
 // Skintone protection
 // Requires: rgb_to_hsv()
 // ============================================================
@@ -141,13 +85,32 @@ __DEVICE__ float skin_mask_range(float r, float g, float b, float range) {
     float width = SKIN_HUE_WIDTH * range;
     float dist = hue_distance(h, SKIN_HUE_CENTER);
     float hue_gate = 1.0f - smoothstep(0.0f, width, dist);
-    float sat_gate = smoothstep(0.1f, 0.25f, s);
+    float sat_gate = smoothstep(0.08f, 0.35f, s);
 
     return hue_gate * sat_gate;
 }
 
 __DEVICE__ float skin_mask(float r, float g, float b) {
     return skin_mask_range(r, g, b, 1.0f);
+}
+
+__DEVICE__ float skin_mask_gated(float r, float g, float b, float range, float lo, float hi) {
+    float3 hsv = rgb_to_hsv(make_float3(r, g, b));
+    float h = hsv.x;
+    float s = hsv.y;
+    float v = hsv.z;
+
+    if (s < 1e-6f || v < 1e-6f) return 0.0f;
+
+    float width = SKIN_HUE_WIDTH * range;
+    float dist = hue_distance(h, SKIN_HUE_CENTER);
+    float hue_gate = 1.0f - smoothstep(0.0f, width, dist);
+    float sat_gate = smoothstep(0.08f, 0.35f, s);
+
+    float lo_gate = (lo > 0.001f) ? smoothstep(lo * 0.5f, lo, v) : 1.0f;
+    float hi_gate = (hi < 0.999f) ? 1.0f - smoothstep(hi - (1.0f - hi) * 0.5f, hi, v) : 1.0f;
+
+    return hue_gate * sat_gate * lo_gate * hi_gate;
 }
 
 // ============================================================
@@ -175,20 +138,16 @@ __DEVICE__ float3 soft_squeeze(float3 rgb) {
 // Transform
 // ============================================================
 
-__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+#define COMPRESS_EXTRA 0.4f
 
-    if (p_hue == 0.0f && p_saturation == 0.0f && p_density == 0.0f && p_compress == 0.0f)
-        return make_float3(p_R, p_G, p_B);
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
 
     float r = p_R, g = p_G, b = p_B;
 
-    // Hue compression: pull skin-adjacent hues toward center (HSV domain)
-    // Uses a slightly broader mask for detection; pull is proportional to
-    // hue distance from center, so pixels already on the skin line barely
-    // move while fringe pixels get a smooth, graduated pull inward.
-    if (p_compress > 0.0f) {
-        float compress_range = p_range + 0.43f;
-        float cmask = skin_mask_range(r, g, b, compress_range);
+    // --- Evenness: hue compression toward skin center ---
+    // Uses a broader mask than other adjustments to catch outlier hues
+    if (p_evenness > 0.0f) {
+        float cmask = skin_mask_gated(r, g, b, p_range + COMPRESS_EXTRA, p_lo_gate, p_hi_gate);
 
         if (cmask > 1e-6f) {
             float3 hsv = rgb_to_hsv(make_float3(r, g, b));
@@ -197,7 +156,7 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
             if (d > 0.5f) d -= 1.0f;
             if (d < -0.5f) d += 1.0f;
 
-            d *= (1.0f - p_compress * cmask);
+            d *= (1.0f - p_evenness * cmask);
             hsv.x = SKIN_HUE_CENTER + d;
             if (hsv.x < 0.0f) hsv.x += 1.0f;
             if (hsv.x > 1.0f) hsv.x -= 1.0f;
@@ -209,41 +168,77 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         }
     }
 
-    float mask = skin_mask_range(r, g, b, p_range);
+    // --- Main mask (with value gates) ---
+    float mask = skin_mask_gated(r, g, b, p_range, p_lo_gate, p_hi_gate);
 
-    if (p_show_mask == 1)
-        return make_float3(mask, mask, mask);
-
-    if (mask < 1e-6f && p_compress == 0.0f)
+    // Early exit if nothing to do and not showing mask
+    if (mask < 1e-6f && p_show_mask == 0)
         return make_float3(r, g, b);
 
-    float3 lab = rgb_to_oklab(r, g, b);
-    float L = lab.x, a = lab.y, ob = lab.z;
-
-    float C = _sqrtf(a * a + ob * ob);
-    float H = _atan2f(ob, a);
-
+    // --- Hue, Saturation, Density adjustments in HSV ---
     if (mask > 1e-6f) {
-        // Hue rotation (degrees to radians, scaled by mask)
+        float3 hsv = rgb_to_hsv(make_float3(r, g, b));
+
+        // Hue rotation
         if (p_hue != 0.0f) {
-            H += mask * p_hue * (3.14159265f / 180.0f);
+            hsv.x += mask * p_hue / 360.0f;
+            if (hsv.x < 0.0f) hsv.x += 1.0f;
+            if (hsv.x > 1.0f) hsv.x -= 1.0f;
         }
 
-        // Saturation (chroma scale, symmetric in OKLCH)
+        // Saturation scale
         if (p_saturation != 0.0f) {
-            C = _fmaxf(C * (1.0f + mask * p_saturation), 0.0f);
+            hsv.y = _fmaxf(0.0f, hsv.y * (1.0f + mask * p_saturation));
         }
 
-        // Density (lightness scale)
+        // Density (value scale, positive = darker)
         if (p_density != 0.0f) {
-            L = _fmaxf(L * (1.0f - mask * p_density), 0.0f);
+            hsv.z = _fmaxf(0.0f, hsv.z * (1.0f - mask * p_density));
         }
 
-        a = C * _cosf(H);
-        ob = C * _sinf(H);
+        float3 adj = hsv_to_rgb(hsv);
+        r = adj.x;
+        g = adj.y;
+        b = adj.z;
     }
 
-    float3 rgb = oklab_to_rgb(L, a, ob);
-    float3 result = soft_squeeze(rgb);
+    // --- Show Mask: three-zone false-color overlay ---
+    // Rendered AFTER adjustments so sliders visibly affect the mask
+    if (p_show_mask == 1) {
+        float vmask = skin_mask_gated(r, g, b, p_range, p_lo_gate, p_hi_gate);
+        float3 hsv_vis = rgb_to_hsv(make_float3(r, g, b));
+        float grey = hsv_vis.z;
+
+        // Signed hue distance: negative = toward red, positive = toward green
+        float hd = hsv_vis.x - SKIN_HUE_CENTER;
+        if (hd > 0.5f) hd -= 1.0f;
+        if (hd < -0.5f) hd += 1.0f;
+
+        float width = SKIN_HUE_WIDTH * p_range;
+        float zone = (width > 1e-6f) ? hd / width : 0.0f;
+        if (zone < -1.0f) zone = -1.0f;
+        if (zone > 1.0f) zone = 1.0f;
+
+        // Bold palette: red(-1) → gold(0) → cyan(+1)
+        float tr, tg, tb;
+        if (zone <= 0.0f) {
+            float t = -zone;
+            tr = 0.18f + t * 0.12f;
+            tg = 0.12f - t * 0.20f;
+            tb = -0.06f - t * 0.06f;
+        } else {
+            float t = zone;
+            tr = 0.18f - t * 0.28f;
+            tg = 0.12f + t * 0.10f;
+            tb = -0.06f + t * 0.18f;
+        }
+
+        float mr = grey + vmask * tr;
+        float mg = grey + vmask * tg;
+        float mb = grey + vmask * tb;
+        return make_float3(mr, mg, mb);
+    }
+
+    float3 result = soft_squeeze(make_float3(r, g, b));
     return result;
 }

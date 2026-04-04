@@ -36,41 +36,74 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     // --- Main mask (with value gates) ---
     float mask = skin_mask_gated(r, g, b, p_range, p_lo_gate, p_hi_gate);
 
-    // --- Show Mask: false-color teal-sage overlay ---
-    if (p_show_mask == 1) {
-        float3 hsv = rgb_to_hsv(make_float3(p_R, p_G, p_B));
-        float grey = hsv.z;
-        float mr = grey * (1.0f - mask * 0.3f);
-        float mg = grey + mask * 0.07f;
-        float mb = grey + mask * 0.05f;
-        return make_float3(mr, mg, mb);
-    }
-
-    // Early exit if nothing to do
-    if (mask < 1e-6f)
+    // Early exit if nothing to do and not showing mask
+    if (mask < 1e-6f && p_show_mask == 0)
         return make_float3(r, g, b);
 
     // --- Hue, Saturation, Density adjustments in HSV ---
-    float3 hsv = rgb_to_hsv(make_float3(r, g, b));
+    if (mask > 1e-6f) {
+        float3 hsv = rgb_to_hsv(make_float3(r, g, b));
 
-    // Hue rotation
-    if (p_hue != 0.0f) {
-        hsv.x += mask * p_hue / 360.0f;
-        if (hsv.x < 0.0f) hsv.x += 1.0f;
-        if (hsv.x > 1.0f) hsv.x -= 1.0f;
+        // Hue rotation
+        if (p_hue != 0.0f) {
+            hsv.x += mask * p_hue / 360.0f;
+            if (hsv.x < 0.0f) hsv.x += 1.0f;
+            if (hsv.x > 1.0f) hsv.x -= 1.0f;
+        }
+
+        // Saturation scale
+        if (p_saturation != 0.0f) {
+            hsv.y = _fmaxf(0.0f, hsv.y * (1.0f + mask * p_saturation));
+        }
+
+        // Density (value scale, positive = darker)
+        if (p_density != 0.0f) {
+            hsv.z = _fmaxf(0.0f, hsv.z * (1.0f - mask * p_density));
+        }
+
+        float3 adj = hsv_to_rgb(hsv);
+        r = adj.x;
+        g = adj.y;
+        b = adj.z;
     }
 
-    // Saturation scale
-    if (p_saturation != 0.0f) {
-        hsv.y = _fmaxf(0.0f, hsv.y * (1.0f + mask * p_saturation));
+    // --- Show Mask: three-zone false-color overlay ---
+    // Rendered AFTER adjustments so sliders visibly affect the mask
+    if (p_show_mask == 1) {
+        float vmask = skin_mask_gated(r, g, b, p_range, p_lo_gate, p_hi_gate);
+        float3 hsv_vis = rgb_to_hsv(make_float3(r, g, b));
+        float grey = hsv_vis.z;
+
+        // Signed hue distance: negative = toward red, positive = toward green
+        float hd = hsv_vis.x - SKIN_HUE_CENTER;
+        if (hd > 0.5f) hd -= 1.0f;
+        if (hd < -0.5f) hd += 1.0f;
+
+        float width = SKIN_HUE_WIDTH * p_range;
+        float zone = (width > 1e-6f) ? hd / width : 0.0f;
+        if (zone < -1.0f) zone = -1.0f;
+        if (zone > 1.0f) zone = 1.0f;
+
+        // Bold palette: red(-1) → gold(0) → cyan(+1)
+        float tr, tg, tb;
+        if (zone <= 0.0f) {
+            float t = -zone;
+            tr = 0.18f + t * 0.12f;
+            tg = 0.12f - t * 0.20f;
+            tb = -0.06f - t * 0.06f;
+        } else {
+            float t = zone;
+            tr = 0.18f - t * 0.28f;
+            tg = 0.12f + t * 0.10f;
+            tb = -0.06f + t * 0.18f;
+        }
+
+        float mr = grey + vmask * tr;
+        float mg = grey + vmask * tg;
+        float mb = grey + vmask * tb;
+        return make_float3(mr, mg, mb);
     }
 
-    // Density (value scale, positive = darker)
-    if (p_density != 0.0f) {
-        hsv.z = _fmaxf(0.0f, hsv.z * (1.0f - mask * p_density));
-    }
-
-    float3 result = hsv_to_rgb(hsv);
-    result = soft_squeeze(result);
+    float3 result = soft_squeeze(make_float3(r, g, b));
     return result;
 }

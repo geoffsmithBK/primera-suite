@@ -1,11 +1,11 @@
-// Primera v0.3.2
+// Primera v0.5.0
 // https://github.com/gsmith/Primera-DCTL
 
 // ============================================================
 // UI Parameters
-// ============================================================
+// ===============================================================
 
-DEFINE_UI_PARAMS(p_tf, Transfer Function, DCTLUI_COMBO_BOX, 0, {TF_LOGC3, TF_LOGC4, TF_REDLOG3G10, TF_SLOG3, TF_ACESCCT, TF_DI, TF_CINEON}, {ARRI LogC3, ARRI LogC4, REDLog3G10, Sony S-Log3, ACEScct, DaVinci Intermediate, Cineon})
+DEFINE_UI_PARAMS(p_tf, Transfer Function, DCTLUI_COMBO_BOX, 0, {TF_LOGC3, TF_LOGC4, TF_REDLOG3G10, TF_SLOG3, TF_ACESCCT, TF_DI, TF_CINEON, TF_FLOG2}, {ARRI LogC3, ARRI LogC4, REDLog3G10, Sony S-Log3, ACEScct, DaVinci Intermediate, Cineon, F-Log2})
 DEFINE_UI_PARAMS(p_exposure, Exposure Stops, DCTLUI_SLIDER_FLOAT, 0.0, -6.0, 6.0, 0.001)
 DEFINE_UI_PARAMS(p_bp, Black Point, DCTLUI_SLIDER_FLOAT, 0.0, -0.05, 0.05, 0.0001)
 DEFINE_UI_PARAMS(p_temp, Temp, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)

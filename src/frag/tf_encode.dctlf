@@ -1,4 +1,3 @@
-
 // ============================================================
 // Transfer functions: linear -> log
 // ============================================================
@@ -61,6 +60,17 @@ __DEVICE__ float lin_to_cineon(float x) {
     return (_log10f(x * (1.0f - offset) + offset) * 300.0f + 685.0f) / 1023.0f;
 }
 
+__DEVICE__ float lin_to_flog2(float x) {
+    const float a = 5.555556f;
+    const float b = 0.064829f;
+    const float c = 0.245281f;
+    const float d = 0.384316f;
+    const float e = 8.799461f;
+    const float f = 0.092864f;
+    const float cut1 = 0.000889f;
+    return (x >= cut1) ? c * _log10f(a * x + b) + d : e * x + f;
+}
+
 __DEVICE__ float encode(float x, int tf) {
     switch (tf) {
         case 0: return lin_to_logc3(x);
@@ -70,6 +80,7 @@ __DEVICE__ float encode(float x, int tf) {
         case 4: return lin_to_acescct(x);
         case 5: return lin_to_di(x);
         case 6: return lin_to_cineon(x);
+        case 7: return lin_to_flog2(x);
         default: return x;
     }
 }

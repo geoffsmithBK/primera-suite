@@ -24,10 +24,10 @@ __DEVICE__ int glyph_row(int ch, int row) {
         case 'I': return (row==0||row==6)?31:6;
         case 'L': return row==6?31:24;
         case 'N': return row==0||row==6?17:row<=2?25:row==3?21:19;
+        case 'R': return (row==0||row==3)?31:row<=2?27:row==4?26:25;
+        case '%': return row==0?25:row==1?26:row==2?2:row==3?4:row==4?8:row==5?19:3;
+        case 'F': return (row==0||row==3)?31:24;
         case 'O': return (row==0||row==6)?31:27;
-        case 'P': return (row==0||row==3)?31:row<3?27:24;
-        case 'R': return (row==0||row==3)?31:row<3?27:row==4?26:25;
-        case 'S': return (row==0||row==3||row==6)?31:row<3?24:3;
         case 'T': return row==0?31:6;
         case 'Y': return row<=1?27:row==2?14:6;
         case '=': return (row==2||row==4)?31:0;
@@ -62,6 +62,9 @@ __DEVICE__ int tf_name_char(int tf, int pos) {
             if (pos==0) return 'C'; if (pos==1) return 'I'; if (pos==2) return 'N';
             if (pos==3) return 'E'; if (pos==4) return 'O'; if (pos==5) return 'N';
             return 0;
+        case 7:
+            if (pos==0) return 'F'; if (pos==1) return 'L'; if (pos==2) return 'O';
+            if (pos==3) return 'G'; if (pos==4) return '2'; return 0;
         default: return 0;
     }
 }
@@ -70,7 +73,7 @@ __DEVICE__ int tf_name_len(int tf) {
     switch (tf) {
         case 0: return 5;  case 1: return 5;  case 2: return 10;
         case 3: return 5;  case 4: return 7;  case 5: return 2;
-        case 6: return 6;  default: return 0;
+        case 6: return 6;  case 7: return 5;  default: return 0;
     }
 }
 
@@ -109,7 +112,7 @@ __DEVICE__ float3 render_chart(int p_Width, int p_Height, int p_X, int p_Y, int 
     int pad = 2 * cell;
 
     int name_len = tf_name_len(tf);
-    int line2_len = 15;
+    int line2_len = 16;
 
     int lower_top = p_Height / 2;
     int lower_h = p_Height - lower_top;
@@ -157,14 +160,15 @@ __DEVICE__ float3 render_chart(int p_Width, int p_Height, int p_X, int p_Y, int 
                 int ch = 0;
                 switch (ci) {
                     case 0: ch='1'; break; case 1: ch='8'; break;
-                    case 2: ch=' '; break; case 3: ch='G'; break;
-                    case 4: ch='R'; break; case 5: ch='A'; break;
-                    case 6: ch='Y'; break; case 7: ch=' '; break;
-                    case 8: ch='='; break; case 9: ch=' '; break;
-                    case 10: ch='0'; break; case 11: ch='.'; break;
-                    case 12: ch='0'+mg_d1; break;
-                    case 13: ch='0'+mg_d2; break;
-                    case 14: ch='0'+mg_d3; break;
+                    case 2: ch='%'; break; case 3: ch=' '; break;
+                    case 4: ch='G'; break; case 5: ch='R'; break;
+                    case 6: ch='A'; break; case 7: ch='Y'; break;
+                    case 8: ch=' '; break; case 9: ch='='; break;
+                    case 10: ch=' '; break; case 11: ch='0'; break;
+                    case 12: ch='.'; break;
+                    case 13: ch='0'+mg_d1; break;
+                    case 14: ch='0'+mg_d2; break;
+                    case 15: ch='0'+mg_d3; break;
                 }
                 if (ch > 32) {
                     int mask = glyph_row(ch, cy);
