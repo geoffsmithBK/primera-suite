@@ -74,14 +74,15 @@ My personal aesthetic lodestar is still a "film look," in the broad sense, but r
   <img src="img/PrimeraSkin.png">
 </p>
 
-`PrimeraSkin.dctl` is a dedicated skintone 'sculpting' tool operating in the OKLCH color model. It targets a "fuzzy pie slice" of the HSV disc centered on the nominal skin tone hue (~28° counter-clockwise) and applies perceptually uniform adjustments within that region. Everything outside the mask passes through untouched.
+`PrimeraSkin.dctl` is a dedicated skintone sculpting tool operating entirely in HSV, making it encoding-agnostic — it works the same on log-encoded timelines regardless of the camera's transfer function. It targets a "fuzzy pie slice" of the HSV disc centered on the nominal skin tone hue (~28°) and applies adjustments within that region. Everything outside the mask passes through untouched.
 
-- **Hue** — Rotates skin hue in OKLCH (+/-30°)
-- **Saturation** — Scales chroma symmetrically; both positive and negative directions stay in OKLCH for consistent behavior with no hue shift
-- **Density** — Adjusts lightness (positive = darker)
-- **Range** — Widens or narrows the skin mask (0.25 = tight +/-7°, 1.0 = default +/-28°, 2.0 = broad +/-56°)
-- **Compression** — pulls adjacent hues near the boundaries of the skintone indicator towards the median; meant to emulate HMU evening-out talent skintones on set during shooting
-- **Show Mask** — shows a monochrome overlay of the affected area
+- **Hue** — Rotates skin hue (+/-20°)
+- **Saturation** — Scales HSV saturation within the mask
+- **Density** — Adjusts value/brightness (positive = darker)
+- **Range** — Widens or narrows the skin mask (0.25 = tight, 2.0 = broad)
+- **Evenness** — Compresses outlier hues toward the skin center; meant to emulate HMU evening-out talent skintones on set during shooting
+- **Low Gate / High Gate** — Value-based gates that exclude dark or bright pixels from the mask (useful for protecting shadows and specular highlights)
+- **Show Mask** — Three-zone false-color overlay showing skin qualification: gold = in zone, red = hue too far clockwise, cyan = hue too far counter-clockwise
 
 Gamut containment is done via the same "soft squeeze" described above (`tanh` in the shoulder/exponential compression in the toe).
 
