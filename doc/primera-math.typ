@@ -13,7 +13,7 @@
   #v(0.3em)
   #text(size: 13pt, fill: luma(100))[Mathematical Reference]
   #v(0.5em)
-  #text(size: 10pt, fill: luma(140))[v0.3.2]
+  #text(size: 10pt, fill: luma(140))[v0.5.0]
 ]
 
 #v(1em)
@@ -51,34 +51,6 @@ $ S = cases(Delta slash C_"max" &"if" C_"max" > 0, 0 &"otherwise") , quad V = C_
 
 The inverse follows the standard piecewise chroma/secondary construction.
 
-== OKLab / OKLCH <oklab>
-
-Used by PrimeraSkin. The forward transform maps linear sRGB to OKLab via the $M_1$ and $M_2$ matrices from Ottosson (2020):
-
-$ vec(l, m, s) = M_1 vec(r, g, b), quad M_1 = mat(
-  0.4122, 0.5363, 0.0514;
-  0.2119, 0.6807, 0.1074;
-  0.0883, 0.2817, 0.6300;
-) $
-
-Each cone response is cube-rooted (using $"sgn"(x) |x|^(1 slash 3)$ for negative-safe operation):
-
-$ vec(l', m', s') = vec(root(3, l), root(3, m), root(3, s)) $
-
-Then:
-
-$ vec(L, a, b) = M_2 vec(l', m', s'), quad M_2 = mat(
-  0.2105, 0.7936, -0.0041;
-  1.9780, -2.4286, 0.4506;
-  0.0259, 0.7828, -0.8087;
-) $
-
-The cylindrical form (OKLCH) is the usual polar decomposition:
-
-$ C = sqrt(a^2 + b^2), quad h = "atan2"(b, a) $
-
-The inverse reconstructs $(a, b) = (C cos h, C sin h)$ then reverses through $M_2^(-1)$, cubing, and $M_1^(-1)$.
-
 == Soft Gamut Squeeze <soft-squeeze>
 
 Applied per-channel. A piecewise function that compresses the shoulder via $tanh$ and the toe via exponential roll-off, keeping the mid-range on the identity. With knee $k = 0.9$ and range $r = 0.1$ for the shoulder, and toe threshold $t_0 = 0.1$:
@@ -105,11 +77,23 @@ $ d(h) = min(|h - H_0|, 1 - |h - H_0|) $
 
 $ M_"hue"(h) = 1 - "smoothstep"(0, w, d(h)) $
 
-$ M_"sat"(s) = "smoothstep"(0.1, 0.25, s) $
+$ M_"sat"(s) = "smoothstep"(0.08, 0.35, s) $
 
 $ M_"skin"(r,g,b) = M_"hue"(H) dot M_"sat"(S) $
 
 where $H$ and $S$ come from the HSV conversion of $(r,g,b)$.
+
+=== Value-Gated Variant <skin-mask-gated>
+
+PrimeraSkin uses an extended mask with additional low/high value gates that exclude very dark or very bright pixels:
+
+$ M_"lo"(v) = cases("smoothstep"(l slash 2, l, v) &"if" l > 0.001, 1 &"otherwise") $
+
+$ M_"hi"(v) = cases(1 - "smoothstep"(h - (1 - h)/2, h, v) &"if" h < 0.999, 1 &"otherwise") $
+
+$ M_"gated"(r,g,b) = M_"hue"(H) dot M_"sat"(S) dot M_"lo"(V) dot M_"hi"(V) $
+
+where $l$ and $h$ are the Low Gate and High Gate parameters, and $H$, $S$, $V$ come from the HSV conversion of $(r,g,b)$. When gates are at their defaults ($l = 0$, $h = 1$), the gated mask reduces to the standard $M_"skin"$.
 
 #pagebreak()
 
@@ -174,6 +158,15 @@ with $A = 0.0075$, $B = 7$, $C = 0.07329$, $M = 10.4443$, $"cut"_"lin" = 0.00262
 == Kodak Cineon
 
 $ f(x) = (300 log_10(x(1 - delta) + delta) + 685) / 1023, quad delta = 0.0108 $
+
+== Fuji F-Log2
+
+$ f(x) = cases(
+  c dot log_10(a x + b) + d &"if" x >= "cut",
+  e x + f &"otherwise",
+) $
+
+with $a = 5.555556$, $b = 0.064829$, $c = 0.245281$, $d = 0.384316$, $e = 8.799461$, $f = 0.092864$, $"cut" = 0.000889$.
 
 #pagebreak()
 
@@ -334,29 +327,43 @@ where $M_"skin"$ is the mask defined in @skin-mask.
 
 = PrimeraSkin — Skintone Sculpting <skin>
 
-Dedicated skintone adjustments in OKLCH with an HSV-domain mask.
+Dedicated skintone adjustments operating entirely in HSV. Because HSV is a purely geometric decomposition of RGB, PrimeraSkin is encoding-agnostic — it works identically on any log-encoded timeline without requiring linearisation.
 
-== Hue Compression
+== Evenness (Hue Compression)
 
-Before the main OKLCH adjustments, an optional hue compression step operates in HSV. Using a slightly broader mask (range $+ 0.43$), skin-adjacent hues are pulled toward the median skin hue:
+Before the main adjustments, an optional hue compression step pulls skin-adjacent hues toward the median skin hue $H_0$. This uses a broader mask than the other adjustments (range $+ 0.4$) to catch outlier hues at the edges:
 
 $ d = H - H_0 quad (#text[wrapped to $(-0.5, 0.5]$]) $
 
-$ d' = d dot (1 - alpha dot M_"skin"^*) $
+$ d' = d dot (1 - alpha dot M_"gated"^*) $
 
 $ H' = H_0 + d' $
 
-where $alpha in [0, 1]$ is the compression parameter and $M_"skin"^*$ uses the broadened range.
+where $alpha in [0, 1]$ is the Evenness parameter and $M_"gated"^*$ is the value-gated skin mask (@skin-mask-gated) evaluated with the broadened range.
 
-== OKLCH Adjustments
+== HSV Adjustments
 
-The pixel is converted to OKLab (see @oklab) then to cylindrical OKLCH coordinates $(L, C, h)$. Within the skin mask $M$:
+All adjustments are applied in HSV within the value-gated skin mask $M$ (@skin-mask-gated):
 
-- *Hue rotation:* $h' = h + M dot Delta h$ #h(1em) ($Delta h$ in radians, from a $plus.minus 30 degree$ slider)
-- *Saturation:* $C' = max(C dot (1 + M dot sigma), 0)$ #h(1em) ($sigma in [-1, 1]$)
-- *Density:* $L' = max(L dot (1 - M dot delta), 0)$ #h(1em) ($delta in [-0.5, 0.5]$; positive = darker)
+- *Hue rotation:* $H' = H + M dot Delta H slash 360$ #h(1em) ($Delta H in [minus 20 degree, 20 degree]$)
+- *Saturation:* $S' = max(S dot (1 + M dot sigma), 0)$ #h(1em) ($sigma in [-0.5, 0.5]$)
+- *Density:* $V' = max(V dot (1 - M dot delta), 0)$ #h(1em) ($delta in [-0.2, 0.2]$; positive = darker)
 
-The modified $(L', C', h')$ are converted back to Cartesian OKLab $(L', C' cos h', C' sin h')$, then to linear RGB via the inverse OKLab transform. A final per-channel soft squeeze (@soft-squeeze) contains the gamut.
+The modified $(H', S', V')$ are converted back to RGB. A final per-channel soft squeeze (@soft-squeeze) contains the gamut.
+
+== Show Mask Overlay
+
+When enabled, a three-zone false-color overlay replaces the image. The signed hue distance from skin center is normalised to $[-1, 1]$:
+
+$ z = "clamp"((H - H_0) / w, -1, 1) $
+
+where $w = H_0 dot rho$ is the mask width. Three color zones are interpolated over a grey base:
+
+- $z < 0$ (clockwise overshoot): red tint, intensifying with $|z|$
+- $z = 0$ (in zone): gold tint
+- $z > 0$ (counterclockwise overshoot): cyan tint, intensifying with $z$
+
+An optional legend strip occupying the bottom 7.5% of the frame shows the three zone colors with labels (Gr, Sk, Rm).
 
 #pagebreak()
 
