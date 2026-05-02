@@ -8,7 +8,7 @@ A suite of four DaVinci Resolve DCTL color grading tools, built from shared frag
 
 - **Primera** — Primary grading: exposure, black point, temp/tint, contrast, shadows/highlights, roll-off, saturation, chart
 - **PrimeraHue** — Standalone tetrahedral hue/density with Cinecolor (2-strip Technicolor simulation) and skintone protection
-- **PrimeraSkin** — OKLCH-based skintone sculpting: hue, saturation, density, range, compression, with soft-squeeze gamut containment
+- **PrimeraSkin** — HSV-based skintone sculpting: hue, saturation, density, range, evenness, low/high gate, with soft-squeeze gamut containment
 - **PrimeraSplit** — Subtractive split toning with TF-aware mid-grey pivot
 
 ## Build System
@@ -66,3 +66,21 @@ These are hard-won lessons from debugging Resolve's DCTL compiler on macOS Metal
 - **Skintone mask**: HSV-based soft mask (hue gate 28° center, 28° width × saturation smoothstep 0.1→0.25). Used as protection in PrimeraHue and as a chroma weight in PrimeraSkin's Saturation slider
 - **Soft squeeze**: tanh shoulder at 0.9 + exponential toe at 0.1 for gamut containment
 - **Transfer functions**: LogC3, LogC4, REDLog3G10, S-Log3, ACEScct, DaVinci Intermediate, Cineon, F-Log2
+
+## Vercel Landing Page
+
+A static landing page (`index.html` + `favicon.svg`) lives in the repo root and is deployed via Vercel, which watches `main`. Pushing to `main` triggers an automatic redeploy.
+
+- **Preview URL**: `https://primera-git-main-geoff-smiths-projects-4ad51103.vercel.app`
+- **Target domain**: `primera.geoff-smith.net` — domain transfer from Squarespace initiated 2026-05-02, waiting on auth code. OG/Twitter meta tags already reference this domain.
+- **Images**: served from `/img/` (committed to repo, deployed with the page — no external CDN dependency)
+- **Download button**: links directly to `https://github.com/geoffsmithBK/primera-suite/releases/latest/download/Primera.zip` (evergreen via GitHub's `/releases/latest/download/` pattern)
+- **Version number** (`v0.5.0`) is hardcoded in the version strip and footer — update manually on each release, or automate via a GitHub Actions workflow triggered on `release.published`
+- **Pushing from a worktree**: if `main` is checked out in the primary worktree, use `git push origin <branch>:main` rather than checking out main
+
+## Uncommitted WIP (as of 2026-05-02)
+
+The main worktree (`/Users/gsmith/work/primera-suite`) has unstaged modifications to `src/frag/skintone.dctlf`, `Primera/PrimeraSkin.dctl`, and `Primera/PrimeraHue.dctl` — pending a Resolve test before commit:
+
+1. **Chromaticity-based skin detection** — `skin_mask_gated` replaces the HSV saturation gate with rg-chromaticity ratios (`rn = r/sum`, `gn = g/sum`, `bn = b/sum`). Motivation: HSV saturation collapses on dark/overexposed log pixels; chromaticity is brightness-invariant. Hue gate and Low/High Gate sliders are preserved.
+2. **Hue slider direction fix** (PrimeraSkin only) — flips sign on hue rotation so slider direction matches the Show Mask legend (left = cyan, right = magenta).
