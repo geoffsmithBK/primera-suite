@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Primera Suite — Color Grading DCTLs for DaVinci Resolve Studio</title>
+  <meta name="description" content="Primera is a personal suite of DaVinci Resolve Studio color grading DCTLs for primary grading and look development, built for color-managed workflows.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;1,8..60,300&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg:          #0c0b09;
+      --bg-raise:    #131210;
+      --bg-card:     #181612;
+      --rule:        #2a2620;
+      --text:        #ddd8cc;
+      --text-dim:    #857f74;
+      --text-dimmer: #4a4640;
+      --accent:      #c08840;
+      --accent-dim:  #7a5425;
+      --accent-glow: rgba(192, 136, 64, 0.12);
+      --code-bg:     #1c1a15;
+      --radius:      3px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Source Serif 4', Georgia, serif;
+      font-weight: 300;
+      font-size: 1.0625rem;
+      line-height: 1.72;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* ── Grain overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.6;
+    }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 0 2rem;
+    }
+
+    /* ── Header hero ── */
+    .hero {
+      padding: 4rem 0 0;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .hero-img {
+      width: 100%;
+      display: block;
+      margin-bottom: 3rem;
+      opacity: 0.92;
+    }
+
+    .hero-body {
+      padding-bottom: 3.5rem;
+    }
+
+    .eyebrow {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.875rem;
+    }
+
+    h1 {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 400;
+      line-height: 1.1;
+      letter-spacing: -0.01em;
+      color: #f0ebe0;
+      margin-bottom: 1.5rem;
+    }
+
+    .tagline {
+      font-size: 1.125rem;
+      line-height: 1.65;
+      color: var(--text);
+      max-width: 62ch;
+      margin-bottom: 2.25rem;
+    }
+
+    .cta-row {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      flex-wrap: wrap;
+    }
+
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: var(--accent);
+      color: #0c0b09;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-decoration: none;
+      padding: 0.75rem 1.4rem;
+      border-radius: var(--radius);
+      transition: background 0.2s, transform 0.15s;
+    }
+
+    .btn-download:hover {
+      background: #d09850;
+      transform: translateY(-1px);
+    }
+
+    .btn-download svg {
+      flex-shrink: 0;
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--text-dim);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-decoration: none;
+      border: 1px solid var(--rule);
+      padding: 0.75rem 1.25rem;
+      border-radius: var(--radius);
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .btn-ghost:hover {
+      color: var(--text);
+      border-color: var(--accent-dim);
+    }
+
+    /* ── Nav / version strip ── */
+    .version-strip {
+      border-bottom: 1px solid var(--rule);
+      padding: 0.75rem 0;
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      overflow-x: auto;
+    }
+
+    .version-strip a {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6875rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dimmer);
+      text-decoration: none;
+      white-space: nowrap;
+      transition: color 0.2s;
+    }
+
+    .version-strip a:hover { color: var(--accent); }
+
+    .version-strip .pill {
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid var(--accent-dim);
+      padding: 0.15rem 0.55rem;
+      border-radius: 20px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.625rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* ── Intro section ── */
+    .intro {
+      padding: 3.5rem 0;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .intro p {
+      max-width: 68ch;
+      color: var(--text);
+    }
+
+    .intro p + p { margin-top: 1.1rem; }
+
+    /* ── Tool sections ── */
+    .tools { padding: 1rem 0; }
+
+    .tool-section {
+      padding: 3.5rem 0;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .tool-section:last-of-type {
+      border-bottom: none;
+    }
+
+    .section-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6rem;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+
+    h2 {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+      font-weight: 400;
+      line-height: 1.15;
+      color: #ede8de;
+      margin-bottom: 0.25rem;
+    }
+
+    .filename {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-dimmer);
+      margin-bottom: 1.5rem;
+    }
+
+    .tool-img {
+      width: 100%;
+      display: block;
+      border-radius: var(--radius);
+      border: 1px solid var(--rule);
+      margin-bottom: 1.75rem;
+      transition: opacity 0.3s;
+    }
+
+    .tool-img:hover { opacity: 0.96; }
+
+    .tool-desc {
+      max-width: 68ch;
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── Feature list ── */
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-top: 1rem;
+    }
+
+    .feature-list li {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 0.75rem;
+      align-items: baseline;
+      font-size: 0.9375rem;
+      line-height: 1.55;
+    }
+
+    .feature-list li::before {
+      content: '—';
+      color: var(--accent-dim);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      position: relative;
+      top: 0;
+    }
+
+    .feature-list strong {
+      font-weight: 400;
+      font-style: italic;
+      color: #ede8de;
+    }
+
+    code {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.8125em;
+      background: var(--code-bg);
+      border: 1px solid var(--rule);
+      padding: 0.1em 0.35em;
+      border-radius: 2px;
+      color: #c8c0ae;
+    }
+
+    /* ── Notes section ── */
+    .notes-section {
+      padding: 3rem 0;
+      border-top: 1px solid var(--rule);
+      border-bottom: 1px solid var(--rule);
+    }
+
+    h3 {
+      font-family: 'DM Serif Display', Georgia, serif;
+      font-size: 1.25rem;
+      font-weight: 400;
+      color: #ede8de;
+      margin-bottom: 1.25rem;
+    }
+
+    .notes-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .notes-list li {
+      display: grid;
+      grid-template-columns: 1.25rem 1fr;
+      gap: 0.5rem;
+      font-size: 0.9375rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    .notes-list li::before {
+      content: '·';
+      color: var(--accent-dim);
+      font-size: 1.1rem;
+      line-height: 1.6;
+    }
+
+    .notes-list a, .tool-desc a, .intro a {
+      color: var(--accent);
+      text-decoration: none;
+      border-bottom: 1px solid var(--accent-dim);
+      transition: border-color 0.2s, color 0.2s;
+    }
+
+    .notes-list a:hover, .tool-desc a:hover, .intro a:hover {
+      color: #d09850;
+      border-color: var(--accent);
+    }
+
+    /* ── Credits ── */
+    .credits {
+      padding: 3rem 0;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .credits-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.5rem;
+      margin-top: 1.1rem;
+    }
+
+    .credits-grid a {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.2s;
+    }
+
+    .credits-grid a:hover { color: var(--accent); }
+
+    /* ── Footer ── */
+    footer {
+      padding: 2.5rem 0 3.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .footer-left {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6875rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dimmer);
+      line-height: 1.9;
+    }
+
+    .footer-right {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.6875rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .footer-right a {
+      color: var(--text-dimmer);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-right a:hover { color: var(--accent); }
+
+    /* ── Divider ── */
+    .rule {
+      border: none;
+      border-top: 1px solid var(--rule);
+      margin: 0;
+    }
+
+    /* ── Scroll reveal ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: none;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      .container { padding: 0 1.25rem; }
+      .cta-row { flex-direction: column; align-items: flex-start; }
+      .version-strip { gap: 1.25rem; }
+      footer { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ HERO ═══ -->
+  <div class="container">
+    <header class="hero">
+      <img
+        class="hero-img"
+        src="https://github.com/geoffsmithBK/primera-suite/raw/main/img/header_pie_ltype.png"
+        alt="Primera Suite"
+        width="780"
+      >
+      <div class="hero-body">
+        <p class="eyebrow">DaVinci Resolve Studio · DCTL Suite</p>
+        <h1>Primera Suite</h1>
+        <p class="tagline">
+          A personal suite of color grading DCTLs for primary balancing and look development —
+          built for color-managed workflows, tested against OpenDRT, ACES&nbsp;2.0, and beyond.
+        </p>
+        <div class="cta-row">
+          <a class="btn-download" href="https://github.com/geoffsmithBK/primera-suite/releases/latest">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M7 1v8M4 6l3 3 3-3M2 12h10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Download Latest Release
+          </a>
+          <a class="btn-ghost" href="https://github.com/geoffsmithBK/primera-suite" target="_blank" rel="noopener">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+            </svg>
+            View on GitHub
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- version strip -->
+    <div class="version-strip">
+      <span class="pill">v0.5.0 — Latest</span>
+      <a href="https://github.com/geoffsmithBK/primera-suite/releases">All releases</a>
+      <a href="https://github.com/geoffsmithBK/primera-suite/blob/main/LICENSE">MIT License</a>
+      <a href="https://github.com/geoffsmithBK/primera-suite/blob/main/doc/primera-math.pdf">Math (PDF)</a>
+      <a href="https://github.com/geoffsmithBK/primera-suite/issues">File an issue</a>
+    </div>
+  </div>
+
+  <!-- ═══ INTRO ═══ -->
+  <div class="container">
+    <section class="intro reveal">
+      <p>
+        Primera consolidates the grading approaches I reach for most often into one suite, under one name,
+        and with only the controls I actually use. Most of the underlying math comes from tried-and-tested
+        publicly-available imaging science — and from extensive use of open-source DCTLs by generous
+        members of the color community.
+      </p>
+      <p>
+        My personal aesthetic lodestar is a <em>film look</em> in the broad sense: not emulating any specific
+        stock or process (with one exception) but chasing personal sense-memories of seeing and working with
+        film. The tools are flexible enough to get you most anywhere else you want to go.
+      </p>
+      <p>
+        These are meant to be used in the context of a <a href="https://www.youtube.com/watch?v=JpRuQQ__-YA" target="_blank" rel="noopener">fully color-managed workflow</a>.
+        They've been used and tested most against <a href="https://github.com/jedypod/open-display-transform" target="_blank" rel="noopener">OpenDRT</a>,
+        but play well with Resolve's CST, <a href="https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT" target="_blank" rel="noopener">2499 DRT</a>,
+        and ACES 2.0.
+      </p>
+    </section>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ═══ TOOLS ═══ -->
+  <div class="container">
+    <div class="tools">
+
+      <!-- Primera -->
+      <section class="tool-section reveal">
+        <p class="section-label">Primary Grading</p>
+        <h2>Primera</h2>
+        <p class="filename"><code>Primera.dctl</code></p>
+        <img
+          class="tool-img"
+          src="https://github.com/geoffsmithBK/primera-suite/raw/main/img/Primera.png"
+          alt="Primera DCTL controls"
+          loading="lazy"
+        >
+        <p class="tool-desc">
+          The foundation. Provides primary grading controls for shot-to-shot balancing across a range
+          of log formats, from LogC3 and LogC4 to S-Log3, REDLog3G10, ACEScct, DaVinci Intermediate,
+          Kodak Cineon, and Fuji F-Log2.
+        </p>
+        <ul class="feature-list">
+          <li><span><strong>Exposure</strong> — Linear gain in photographic stops (2<sup>n</sup>) applied before the selected transfer function</span></li>
+          <li><span><strong>Black Point</strong> — Smooth compression of the darkest tones approaching black (flare)</span></li>
+          <li><span><strong>Temp / Tint</strong> — White balance operating in linear space</span></li>
+          <li><span><strong>Contrast</strong> — Log-space tonal stretch/squash around a variable Pivot, defaulting to the transfer function's mid-grey</span></li>
+          <li><span><strong>Shadows / Highlights</strong> — Linear gain constrained below/above mid-grey; LUT-encodable (no spatial ops)</span></li>
+          <li><span><strong>Roll Off</strong> — <code>tanh</code> highlight compression controlling shoulder shape</span></li>
+          <li><span><strong>Neg. / Pos. Saturation</strong> — Multiplicative negative gain on chroma + HSV-based density boost, with Preserve Luma offset</span></li>
+          <li><span><strong>Show Chart</strong> — Per-transfer-function stop-graduated step chart, à la <a href="https://youtu.be/ymr4wyo7GcA?t=3665" target="_blank" rel="noopener">Volpatto</a></span></li>
+        </ul>
+      </section>
+
+      <!-- Primera Hue -->
+      <section class="tool-section reveal">
+        <p class="section-label">Hue &amp; Density</p>
+        <h2>Primera Hue</h2>
+        <p class="filename"><code>PrimeraHue.dctl</code></p>
+        <img
+          class="tool-img"
+          src="https://github.com/geoffsmithBK/primera-suite/raw/main/img/PrimeraHue.png"
+          alt="PrimeraHue DCTL controls"
+          loading="lazy"
+        >
+        <p class="tool-desc">
+          Per-channel hue and density control via tetrahedral interpolation, based on
+          <a href="https://github.com/hotgluebanjo/TetraInterp-DCTL" target="_blank" rel="noopener">hotgluebanjo</a>'s
+          DCTL implementation of the approach described by
+          <a href="https://www.yedlin.net/DisplayPrepDemo/index.html" target="_blank" rel="noopener">Steve Yedlin ASC</a>
+          in his DisplayPrep demo (2018).
+        </p>
+        <ul class="feature-list">
+          <li><span><strong>6 Hue sliders</strong> (R/Y/G/C/B/M) — Rodrigues rotation around each corner's achromatic axis; +/−60° per channel covers the full 360°</span></li>
+          <li><span><strong>6 Density sliders</strong> — Makes the shifted color subjectively more colorful without adding energy</span></li>
+          <li><span><strong>Soft / Hard Clamp</strong> — <code>tanh</code> shoulder + exponential toe compression, or hard clip to [0,1]; stackable</span></li>
+          <li><span><strong>Cinecolor</strong> — Emulates a <a href="https://www.youtube.com/watch?v=dnNeKxt0urk" target="_blank" rel="noopener">budget two-strip color process</a> (~late '30s–early '50s), similar to Technicolor Process 2; bipacked ortho negatives + duplitized print stock, without the registration nightmares</span></li>
+          <li><span><strong>Protect Skintones</strong> — Applies only to Cinecolor; holdout matte centered on ~28° HSV with smooth falloff</span></li>
+        </ul>
+      </section>
+
+      <!-- Primera Split -->
+      <section class="tool-section reveal">
+        <p class="section-label">Split Toning</p>
+        <h2>Primera Split</h2>
+        <p class="filename"><code>PrimeraSplit.dctl</code></p>
+        <img
+          class="tool-img"
+          src="https://github.com/geoffsmithBK/primera-suite/raw/main/img/PrimeraSplit.png"
+          alt="PrimeraSplit DCTL controls"
+          loading="lazy"
+        >
+        <p class="tool-desc">
+          Subtractive color split-toning for imbuing shadows and highlights with (usually) contrasting color casts.
+          Lately conceptualized less as an effect and more as a fundamental look development tool — defining the
+          chroma dimensions of the characteristic curve.
+        </p>
+        <ul class="feature-list">
+          <li><span><strong>Mid-Grey Pivot</strong> — Defaults to the selected transfer function's mid-grey; set by eye</span></li>
+          <li><span><strong>Transition Softness</strong> — Controls the blend width between shadow and highlight zones</span></li>
+          <li><span><strong>Preserve Luminance</strong> — As in Primera and PrimeraHue</span></li>
+          <li><span><strong>Ramp Position</strong> — Positions the greyscale ramp vertically; useful when blanking has been applied</span></li>
+          <li><span><strong>Show Curve / Show Pivot / Show Chart</strong> — Diagnostic overlays for curve shape, pivot position, and per-TF stop chart</span></li>
+        </ul>
+      </section>
+
+      <!-- Primera Skin -->
+      <section class="tool-section reveal">
+        <p class="section-label">Skintone Sculpting</p>
+        <h2>Primera Skin</h2>
+        <p class="filename"><code>PrimeraSkin.dctl</code></p>
+        <img
+          class="tool-img"
+          src="https://github.com/geoffsmithBK/primera-suite/raw/main/img/PrimeraSkin.png"
+          alt="PrimeraSkin DCTL controls"
+          loading="lazy"
+        >
+        <p class="tool-desc">
+          A dedicated skintone sculpting tool operating in HSV, meant for log-based timelines. Targets a
+          "fuzzy pie slice" of the HSV disc centered on the nominal skin tone hue angle (~28°) and applies
+          adjustments within that region only. Everything outside the mask passes through untouched.
+          Gamut containment via the same <code>tanh</code> / exponential soft squeeze used throughout the suite.
+        </p>
+        <ul class="feature-list">
+          <li><span><strong>Hue</strong> — Rotates skin hue (+/−20°)</span></li>
+          <li><span><strong>Saturation</strong> — Scales HSV saturation within the mask</span></li>
+          <li><span><strong>Density</strong> — Adjusts value/brightness (positive = darker)</span></li>
+          <li><span><strong>Range</strong> — Widens or narrows the skin mask (0.25 = tight, 2.0 = broad)</span></li>
+          <li><span><strong>Evenness</strong> — Compresses hues toward the skin center; emulates HMU evening-out talent skintones on set</span></li>
+          <li><span><strong>Low / High Gate</strong> — Value-based gates excluding dark or bright pixels from the mask</span></li>
+          <li><span><strong>Show Mask</strong> — Three-zone false-color overlay: gold = in zone, red = too clockwise, cyan = too counter-clockwise</span></li>
+        </ul>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ═══ NOTES ═══ -->
+  <div class="container">
+    <section class="notes-section reveal">
+      <h3>Notes</h3>
+      <ul class="notes-list">
+        <li>
+          <span>The math underlying the Primera tools is available in both
+          <a href="https://github.com/geoffsmithBK/primera-suite/blob/main/doc/primera-math.typ" target="_blank" rel="noopener">Typst source</a>
+          and <a href="https://github.com/geoffsmithBK/primera-suite/blob/main/doc/primera-math.pdf" target="_blank" rel="noopener">PDF</a>. Feedback welcome.</span>
+        </li>
+        <li>
+          <span>These tools are designed for <strong>color-managed workflows</strong>.
+          See <a href="https://www.youtube.com/watch?v=JpRuQQ__-YA" target="_blank" rel="noopener">here for a primer</a> if you're new to the approach.</span>
+        </li>
+        <li>
+          <span>It is possible to produce negative or otherwise out-of-range values despite the guardrails in place.
+          Reach for gamut compression first. If something's really broken,
+          <a href="https://github.com/geoffsmithBK/primera-suite/issues" target="_blank" rel="noopener">please file an issue</a>.</span>
+        </li>
+        <li>
+          <span>
+          <a href="https://store.kaurh.com" target="_blank" rel="noopener">Kaur Hendriksen's free standalone DCTL</a>
+          implementing ACES 2.0 gamut compression coefficients is warmly recommended. Resolve's ACES Transform or CST also work.
+          </span>
+        </li>
+      </ul>
+    </section>
+  </div>
+
+  <!-- ═══ CREDITS ═══ -->
+  <div class="container">
+    <section class="credits reveal">
+      <h3>Inspiration &amp; Prior Art</h3>
+      <p style="color: var(--text-dim); font-size: 0.9375rem; margin-bottom: 0.5rem; max-width: 64ch;">
+        There's not much particularly original in the Primera tools — they're a curated, opinionated collection of
+        my favorite approaches to primary grading. 90%+ of Primera's existence is owed to the work of:
+      </p>
+      <div class="credits-grid">
+        <a href="https://github.com/jedypod" target="_blank" rel="noopener">Jed Smith</a>
+        <a href="https://github.com/JuanPabloZambrano" target="_blank" rel="noopener">Juan Pablo Zambrano</a>
+        <a href="https://github.com/MoazElgabry" target="_blank" rel="noopener">Moaz Elgabry</a>
+        <a href="https://github.com/thatcherfreeman" target="_blank" rel="noopener">Thatcher Freeman</a>
+        <a href="https://github.com/baldavenger" target="_blank" rel="noopener">Paul Dore</a>
+        <a href="https://kaurh.com" target="_blank" rel="noopener">Kaur Hendriksen</a>
+        <a href="https://github.com/hotgluebanjo" target="_blank" rel="noopener">Calvin Silly / hotgluebanjo</a>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══ FOOTER ═══ -->
+  <div class="container">
+    <footer>
+      <div class="footer-left">
+        Primera Suite<br>
+        MIT License · geoffsmithBK<br>
+        <a href="https://www.linkedin.com/in/geoffsm" target="_blank" rel="noopener" style="color: var(--text-dimmer); text-decoration: none;">linkedin.com/in/geoffsm</a>
+      </div>
+      <div class="footer-right">
+        <a href="https://github.com/geoffsmithBK/primera-suite/releases/latest">Download v0.5.0</a>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // Scroll reveal
+    const revealEls = document.querySelectorAll('.reveal');
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.08 });
+    revealEls.forEach(el => io.observe(el));
+  </script>
+
+</body>
+</html>
