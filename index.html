@@ -46,13 +46,13 @@
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html { font-size: 16px; scroll-behavior: smooth; }
+    html { font-size: 18px; scroll-behavior: smooth; }
 
     body {
       background: var(--bg);
       color: var(--text);
       font-family: 'Source Serif 4', Georgia, serif;
-      font-weight: 300;
+      font-weight: 500;
       font-size: 1.0625rem;
       line-height: 1.72;
       -webkit-font-smoothing: antialiased;
@@ -72,7 +72,7 @@
 
     /* ── Layout ── */
     .container {
-      max-width: 780px;
+      max-width: 850px;
       margin: 0 auto;
       padding: 0 2rem;
     }
@@ -265,7 +265,7 @@
     }
 
     .tool-img {
-      width: 100%;
+      width: 50%;
       display: block;
       border-radius: var(--radius);
       border: 1px solid var(--rule);
@@ -308,7 +308,7 @@
     }
 
     .feature-list strong {
-      font-weight: 400;
+      font-weight: 1000;
       font-style: italic;
       color: #ede8de;
     }
@@ -474,8 +474,12 @@
         <p class="eyebrow">DaVinci Resolve Studio · DCTL Suite</p>
         <h1>Primera Suite</h1>
         <p class="tagline">
-          A personal suite of color grading DCTLs for primary balancing and look development —
-          built for color-managed workflows, tested against OpenDRT, ACES&nbsp;2.0, and beyond.
+          A <a href="https://www.linkedin.com/in/geoffsm"
+        target="_blank" rel="noopener" style="color:
+        var(--text-dimmer); text-decoration: none;">personal</a> suite
+        of open source color grading DCTLs (DaVinci Resolve Studio
+        required) for primary balancing and some aspects of look
+        development.
         </p>
         <div class="cta-row">
           <a class="btn-download" href="https://github.com/geoffsmithBK/primera-suite/releases/latest/download/Primera.zip">
@@ -508,21 +512,31 @@
   <div class="container">
     <section class="intro reveal">
       <p>
-        Primera consolidates the grading approaches I reach for most often into one suite, under one name,
-        and with only the controls I actually use. Most of the underlying math comes from tried-and-tested
-        publicly-available imaging science — and from extensive use of open-source DCTLs by generous
-        members of the color community.
+        Primera consolidates the grading approaches I reach for most
+        often in one place, under one name, and with only the controls
+        I actually use. Most of the underlying math comes from
+        publicly-available, tried-and-tested imaging science and from
+        extensive use of open-source DCTLs provided by the generous
+        members of the "color-concerned community."
       </p>
       <p>
-        My personal aesthetic lodestar is a <em>film look</em> in the broad sense: not emulating any specific
-        stock or process (with one exception) but chasing personal sense-memories of seeing and working with
-        film. The tools are flexible enough to get you most anywhere else you want to go.
+        My personal aesthetic lodestar remains a <em>film-like
+        look</em>, in the broad sense, however not by emulating any
+        specific stock or process (with one sort-of exception) and in
+        any case the tools should be flexible enough to achieve a
+        broad range of looks.
       </p>
       <p>
-        These are meant to be used in the context of a <a href="https://www.youtube.com/watch?v=JpRuQQ__-YA" target="_blank" rel="noopener">fully color-managed workflow</a>.
-        They've been used and tested most against <a href="https://github.com/jedypod/open-display-transform" target="_blank" rel="noopener">OpenDRT</a>,
-        but play well with Resolve's CST, <a href="https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT" target="_blank" rel="noopener">2499 DRT</a>,
-        and ACES 2.0.
+        The DCTLs are meant to be used in the context of
+        a <a href="https://www.youtube.com/watch?v=JpRuQQ__-YA"
+        target="_blank" rel="noopener">fully color-managed
+        workflow</a>.  They&#39;ve been used and tested most
+        against <a href="https://github.com/jedypod/open-display-transform"
+        target="_blank" rel="noopener">OpenDRT</a>, but play well with
+        Resolve&#39;s
+        CST, <a href="https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT"
+        target="_blank" rel="noopener">2499 DRT</a>, ACES 2.0, and
+        correctly-constructed 3D LUTs.
       </p>
     </section>
   </div>
@@ -545,19 +559,33 @@
           loading="lazy"
         >
         <p class="tool-desc">
-          The foundation. Provides primary grading controls for shot-to-shot balancing across a range
-          of log formats, from LogC3 and LogC4 to S-Log3, REDLog3G10, ACEScct, DaVinci Intermediate,
-          Kodak Cineon, and Fuji F-Log2.
+          The foundation. Provides primary grading controls for shot-to-shot balancing across the range of source and working space encodings I encounter most often: ARRI LogC3 and LogC4, Sony S-Log3, REDLog3G10, ACEScct, DaVinci Intermediate, and Kodak Cineon.
         </p>
         <ul class="feature-list">
-          <li><span><strong>Exposure</strong> — Linear gain in photographic stops (2<sup>n</sup>) applied before the selected transfer function</span></li>
-          <li><span><strong>Black Point</strong> — Smooth compression of the darkest tones approaching black (flare)</span></li>
-          <li><span><strong>Temp / Tint</strong> — White balance operating in linear space</span></li>
-          <li><span><strong>Contrast</strong> — Log-space tonal stretch/squash around a variable Pivot, defaulting to the transfer function's mid-grey</span></li>
-          <li><span><strong>Shadows / Highlights</strong> — Linear gain constrained below/above mid-grey; LUT-encodable (no spatial ops)</span></li>
-          <li><span><strong>Roll Off</strong> — <code>tanh</code> highlight compression controlling shoulder shape</span></li>
-          <li><span><strong>Neg. / Pos. Saturation</strong> — Multiplicative negative gain on chroma + HSV-based density boost, with Preserve Luma offset</span></li>
-          <li><span><strong>Show Chart</strong> — Per-transfer-function stop-graduated step chart, à la <a href="https://youtu.be/ymr4wyo7GcA?t=3665" target="_blank" rel="noopener">Volpatto</a></span></li>
+          <li><span><strong>Exposure Stops</strong> — Linear gain in
+          photographic stops (2<sup>n</sup>) applied before the
+          selected transfer function</span></li>
+          <li><span><strong>Black Point</strong> — Smooth compression
+          of the darkest tones approaching black via subtraction of a constant
+          (called "flare" in Baselight)</span></li>
+          <li><span><strong>Temp / Tint</strong> — White balance
+          operating in linear space</span></li>
+          <li><span><strong>Contrast</strong> — Log-space tonal
+          stretch/squash around a variable Pivot defaulted to the
+          selected transfer function&#39;s mid-grey point</span></li>
+          <li><span><strong>Shadows / Highlights</strong> — Linear
+          gain constrained to operate below/above mid-grey; no spatial
+          operations so may be encoded in a 3D LUT</span></li>
+          <li><span><strong>Roll Off</strong> — <code>tanh</code>
+          highlight compression; works
+          with <strong>Highlights</strong> to control the shoulder&#39;s curve shape</span></li>
+          <li><span><strong>Neg. Saturation</strong> — Multiplicative negative gain on chroma
+          <li><span><strong>Pos. Saturation</strong> — HSV-based "density" boost
+	  <li><span><strong>Preserve Luma - Sat</strong> — Both Saturation controls will only darken the image, this option offsets (via positive linear gain) this consequence</span></li>
+          <li><span><strong>Show Chart</strong> —
+          Per-transfer-function stop-graduated step chart, à la the
+          chart shown <a href="https://youtu.be/ymr4wyo7GcA?t=3665"
+          target="_blank" rel="noopener">here</a> by Walter Volpatto</span></li>
         </ul>
       </section>
 
@@ -569,22 +597,41 @@
         <img
           class="tool-img"
           src="https://github.com/geoffsmithBK/primera-suite/raw/main/img/PrimeraHue.png"
-          alt="PrimeraHue DCTL controls"
-          loading="lazy"
-        >
+          alt="PrimeraHue DCTL controls" loading="lazy">
         <p class="tool-desc">
           Per-channel hue and density control via tetrahedral interpolation, based on
-          <a href="https://github.com/hotgluebanjo/TetraInterp-DCTL" target="_blank" rel="noopener">hotgluebanjo</a>'s
-          DCTL implementation of the approach described by
-          <a href="https://www.yedlin.net/DisplayPrepDemo/index.html" target="_blank" rel="noopener">Steve Yedlin ASC</a>
-          in his DisplayPrep demo (2018).
+          <a href="https://github.com/hotgluebanjo/TetraInterp-DCTL"
+          target="_blank" rel="noopener">hotgluebanjo&#39;s</a> DCTL
+          implementation of an approach described by Steve Yedlin ASC
+          in his
+          <a href="https://www.yedlin.net/DisplayPrepDemo/index.html"
+          target="_blank" rel="noopener">DisplayPrep demo</a>
+          and follow-up discussion from 2018.
         </p>
         <ul class="feature-list">
-          <li><span><strong>6 Hue sliders</strong> (R/Y/G/C/B/M) — Rodrigues rotation around each corner's achromatic axis; +/−60° per channel covers the full 360°</span></li>
-          <li><span><strong>6 Density sliders</strong> — Makes the shifted color subjectively more colorful without adding energy</span></li>
-          <li><span><strong>Soft / Hard Clamp</strong> — <code>tanh</code> shoulder + exponential toe compression, or hard clip to [0,1]; stackable</span></li>
-          <li><span><strong>Cinecolor</strong> — Emulates a <a href="https://www.youtube.com/watch?v=dnNeKxt0urk" target="_blank" rel="noopener">budget two-strip color process</a> (~late '30s–early '50s), similar to Technicolor Process 2; bipacked ortho negatives + duplitized print stock, without the registration nightmares</span></li>
-          <li><span><strong>Protect Skintones</strong> — Applies only to Cinecolor; holdout matte centered on ~28° HSV with smooth falloff</span></li>
+          <li><span><strong>6 Hue sliders</strong> (R/Y/G/C/B/M) —
+          Rodrigues' rotation around each corner's achromatic axis;
+          +/−60° per channel covers the full 360° disc in
+          HSV</span></li>
+          <li><span><strong>6 Density sliders</strong> — Makes the
+          shifted color subjectively more colorful without adding
+          energy</span></li>
+          <li><span><strong>Soft / Hard Clamp</strong>
+          — <code>tanh</code> shoulder + exponential toe compression,
+          or hard clip to [0,1]; both can be applied or just
+          one</span></li>
+          <li><span><strong>Cinecolor</strong> — Emulates a largely
+          forgotten
+          "budget" <a href="https://www.youtube.com/watch?v=dnNeKxt0urk"
+          target="_blank" rel="noopener">two-strip color process</a>
+          in use from about the late 1930s to the early 1950s. Similar
+          to Technicolor Process 2, Cinecolor used bi-packed ortho
+          negatives and duplitized print stock (emulsion on both sides
+          of the base) and now it&#39;s here for you in 2026 only without the
+          registration nightmares</span></li>
+          <li><span><strong>Protect Skintones</strong> — Applies only
+          to Cinecolor; creates a holdout matte centered on ~28° HSV
+          with smooth falloff</span></li>
         </ul>
       </section>
 
@@ -600,16 +647,28 @@
           loading="lazy"
         >
         <p class="tool-desc">
-          Subtractive color split-toning for imbuing shadows and highlights with (usually) contrasting color casts.
-          Lately conceptualized less as an effect and more as a fundamental look development tool — defining the
-          chroma dimensions of the characteristic curve.
+          Subtractive color split-toning for imbuing shadows and
+          highlights with (usually) contrasting color casts.  Lately
+          conceptualized less as an effect and more as a fundamental
+          look development tool, defining the chroma vectors of
+          the characteristic curve.
         </p>
         <ul class="feature-list">
-          <li><span><strong>Mid-Grey Pivot</strong> — Defaults to the selected transfer function's mid-grey; set by eye</span></li>
-          <li><span><strong>Transition Softness</strong> — Controls the blend width between shadow and highlight zones</span></li>
-          <li><span><strong>Preserve Luminance</strong> — As in Primera and PrimeraHue</span></li>
-          <li><span><strong>Ramp Position</strong> — Positions the greyscale ramp vertically; useful when blanking has been applied</span></li>
-          <li><span><strong>Show Curve / Show Pivot / Show Chart</strong> — Diagnostic overlays for curve shape, pivot position, and per-TF stop chart</span></li>
+          <li><span><strong>Mid-Grey Pivot</strong> — Defaults to the
+          selected transfer function&#39;s mid-grey but best set by
+          eye</span></li>
+          <li><span><strong>Transition Softness</strong> — Controls
+          the blend width between shadow and highlight
+          zones</span></li>
+          <li><span><strong>Preserve Luminance</strong> — As in
+          Primera and PrimeraHue</span></li>
+          <li><span><strong>Ramp Position</strong> — Positions the
+          greyscale ramp vertically; useful when working under
+          blanking</span></li>
+          <li><span><strong>Show Curve / Show Pivot / Show
+          Chart</strong> — Diagnostic overlays for curve shape, pivot
+          position and transition softness, and the same per-TF stop
+          chart as in Primera</span></li>
         </ul>
       </section>
 
@@ -618,26 +677,40 @@
         <p class="section-label">Skintone Sculpting</p>
         <h2>Primera Skin</h2>
         <p class="filename"><code>PrimeraSkin.dctl</code></p>
-        <img
-          class="tool-img"
+        <img class="tool-img"
           src="https://github.com/geoffsmithBK/primera-suite/raw/main/img/PrimeraSkin.png"
-          alt="PrimeraSkin DCTL controls"
-          loading="lazy"
-        >
+          alt="PrimeraSkin DCTL controls" loading="lazy">
         <p class="tool-desc">
-          A dedicated skintone sculpting tool operating in HSV, meant for log-based timelines. Targets a
-          "fuzzy pie slice" of the HSV disc centered on the nominal skin tone hue angle (~28°) and applies
-          adjustments within that region only. Everything outside the mask passes through untouched.
-          Gamut containment via the same <code>tanh</code> / exponential soft squeeze used throughout the suite.
+          A dedicated skintone sculpting tool operating in HSV, meant
+          for log-based sources/groups/timelines. Targets a "fuzzy pie
+          slice" of the HSV disc centered on the nominal skin tone hue
+          angle (~28°) and applies adjustments within that region
+          only. Everything outside the mask passes through untouched.
+          Gamut containment via the same <code>tanh</code> /
+          exponential soft squeeze used throughout.
         </p>
         <ul class="feature-list">
           <li><span><strong>Hue</strong> — Rotates skin hue (+/−20°)</span></li>
-          <li><span><strong>Saturation</strong> — Scales HSV saturation within the mask</span></li>
-          <li><span><strong>Density</strong> — Adjusts value/brightness (positive = darker)</span></li>
-          <li><span><strong>Range</strong> — Widens or narrows the skin mask (0.25 = tight, 2.0 = broad)</span></li>
-          <li><span><strong>Evenness</strong> — Compresses hues toward the skin center; emulates HMU evening-out talent skintones on set</span></li>
-          <li><span><strong>Low / High Gate</strong> — Value-based gates excluding dark or bright pixels from the mask</span></li>
-          <li><span><strong>Show Mask</strong> — Three-zone false-color overlay: gold = in zone, red = too clockwise, cyan = too counter-clockwise</span></li>
+          <li><span><strong>Saturation</strong> — Scales HSV
+          saturation within the mask</span></li>
+          <li><span><strong>Density</strong> — Adjusts
+          value/brightness (positive = darker)</span></li>
+          <li><span><strong>Range</strong> — Widens or narrows the
+          skin mask (0.25 = tight, 2.0 = broad)</span></li>
+          <li><span><strong>Evenness</strong> — Compresses hues toward
+          the skin center; emulates HMU evening-out talent skintones
+          on set</span></li>
+          <li><span><strong>Low / High Gate</strong> — Value-based
+          gates excluding dark or bright pixels from the
+          mask</span></li>
+          <li><span><strong>Show Mask</strong> — Three-zone
+          false-color overlay shows the "skin zone" in yellow/gold
+          while magenta denotes the pixels fall outside of the skin
+          vector in the clockwise direction and green too far
+          counter-clockwise. Usable with most trasnfer functions but
+          best observed in Log space.</span></li>
+	  <li><span><strong>Legend</strong> — shows a key for three zones in
+          a gradient strip across the bottom of the viewer</span></li>
         </ul>
       </section>
 
@@ -650,23 +723,37 @@
       <h3>Notes</h3>
       <ul class="notes-list">
         <li>
-          <span>The math underlying the Primera tools is available in both
-          <a href="https://github.com/geoffsmithBK/primera-suite/blob/main/doc/primera-math.typ" target="_blank" rel="noopener">Typst source</a>
-          and <a href="https://github.com/geoffsmithBK/primera-suite/blob/main/doc/primera-math.pdf" target="_blank" rel="noopener">PDF</a>. Feedback welcome.</span>
+          <span>The math underlying the Primera tools is available in
+          both
+          <a href="https://github.com/geoffsmithBK/primera-suite/blob/main/doc/primera-math.typ"
+          target="_blank" rel="noopener">Typst source</a>
+          and <a href="https://github.com/geoffsmithBK/primera-suite/blob/main/doc/primera-math.pdf"
+          target="_blank"
+          rel="noopener">PDF</a>. <a href="https://github.com/geoffsmithBK/primera-suite/discussions"
+          target="_blank" rel="noopener">Feedback</a> welcome.</span>
         </li>
         <li>
-          <span>These tools are designed for <strong>color-managed workflows</strong>.
-          See <a href="https://www.youtube.com/watch?v=JpRuQQ__-YA" target="_blank" rel="noopener">here for a primer</a> if you're new to the approach.</span>
+          <span>These tools are designed to be used in the context of a fully <strong>color-managed
+          workflow</strong>.
+          See <a href="https://www.youtube.com/watch?v=JpRuQQ__-YA"
+          target="_blank" rel="noopener">here</a> for a primer if
+          you&#39;re unfamiliar with this approach.</span>
         </li>
         <li>
-          <span>It is possible to produce negative or otherwise out-of-range values despite the guardrails in place.
-          Reach for gamut compression first. If something's really broken,
-          <a href="https://github.com/geoffsmithBK/primera-suite/issues" target="_blank" rel="noopener">please file an issue</a>.</span>
+          <span>It is possible to produce negative or otherwise
+          out-of-range values despite the guardrails/containment in
+          place. I usually reach for gamut compression first if this
+          happens but if something&#39;s obviously broken,
+          please <a href="https://github.com/geoffsmithBK/primera-suite/issues"
+          target="_blank" rel="noopener">file an issue</a>.</span>
         </li>
         <li>
           <span>
-          <a href="https://store.kaurh.com" target="_blank" rel="noopener">Kaur Hendriksen's free standalone DCTL</a>
-          implementing ACES 2.0 gamut compression coefficients is warmly recommended. Resolve's ACES Transform or CST also work.
+          <a href="https://store.kaurh.com" target="_blank"
+          rel="noopener">Kaur Hendriksen's free standalone DCTL</a>
+          implements ACES 2.0 gamut compression coefficients and is
+          heartily recommended. Resolve's ACES Transform or CST also
+          (usually) work.
           </span>
         </li>
       </ul>
@@ -678,17 +765,26 @@
     <section class="credits reveal">
       <h3>Inspiration &amp; Prior Art</h3>
       <p style="color: var(--text-dim); font-size: 0.9375rem; margin-bottom: 0.5rem; max-width: 64ch;">
-        There's not much particularly original in the Primera tools — they're a curated, opinionated collection of
-        my favorite approaches to primary grading. 90%+ of Primera's existence is owed to the work of:
+        There's not much particularly new/original in the Primera
+        tools. They&#39;re a curated, opinionated collection of my
+        favorite approaches to primary grading. 90%+ of Primera's
+        existence is owed to the work of:
       </p>
       <div class="credits-grid">
-        <a href="https://github.com/jedypod" target="_blank" rel="noopener">Jed Smith</a>
-        <a href="https://github.com/JuanPabloZambrano" target="_blank" rel="noopener">Juan Pablo Zambrano</a>
-        <a href="https://github.com/MoazElgabry" target="_blank" rel="noopener">Moaz Elgabry</a>
-        <a href="https://github.com/thatcherfreeman" target="_blank" rel="noopener">Thatcher Freeman</a>
-        <a href="https://github.com/baldavenger" target="_blank" rel="noopener">Paul Dore</a>
-        <a href="https://kaurh.com" target="_blank" rel="noopener">Kaur Hendriksen</a>
-        <a href="https://github.com/hotgluebanjo" target="_blank" rel="noopener">Calvin Silly / hotgluebanjo</a>
+        <a href="https://github.com/jedypod" target="_blank"
+        rel="noopener">Jed Smith</a>
+        <a href="https://github.com/JuanPabloZambrano" target="_blank"
+        rel="noopener">Juan Pablo Zambrano</a>
+        <a href="https://github.com/MoazElgabry" target="_blank"
+        rel="noopener">Moaz Elgabry</a>
+        <a href="https://github.com/thatcherfreeman" target="_blank"
+        rel="noopener">Thatcher Freeman</a>
+        <a href="https://github.com/baldavenger" target="_blank"
+        rel="noopener">Paul Dore</a>
+        <a href="https://kaurh.com" target="_blank"
+        rel="noopener">Kaur Hendriksen</a>
+        <a href="https://github.com/hotgluebanjo" target="_blank"
+        rel="noopener">Calvin Silly / hotgluebanjo</a>
       </div>
     </section>
   </div>
@@ -698,8 +794,12 @@
     <footer>
       <div class="footer-left">
         Primera Suite<br>
-        MIT License · geoffsmithBK<br>
-        <a href="https://www.linkedin.com/in/geoffsm" target="_blank" rel="noopener" style="color: var(--text-dimmer); text-decoration: none;">linkedin.com/in/geoffsm</a>
+        MIT License · <a href="https://github.com/geoffsmithBK" target="_blank"
+        rel="noopener" style="color: var(--text-dimmer);
+        text-decoration: none;">My GitHub</a><br>
+        <a href="https://www.linkedin.com/in/geoffsm" target="_blank"
+        rel="noopener" style="color: var(--text-dimmer);
+        text-decoration: none;">linkedin.com/in/geoffsm</a>
       </div>
       <div class="footer-right">
         <a href="https://github.com/geoffsmithBK/primera-suite/releases/latest/download/Primera.zip">Download v0.5.0</a>

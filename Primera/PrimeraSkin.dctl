@@ -95,23 +95,39 @@ __DEVICE__ float skin_mask(float r, float g, float b) {
     return skin_mask_range(r, g, b, 1.0f);
 }
 
+// Detection uses rg-chromaticity (normalized RGB ratios) rather than HSV
+// saturation. Ratios are invariant to overall brightness, so the mask catches
+// fair and dark skin equally well. Log-space skin clusters tightly around
+// gn ≈ 0.33 with rn > bn.
 __DEVICE__ float skin_mask_gated(float r, float g, float b, float range, float lo, float hi) {
+    float sum = r + g + b;
+    if (sum < 0.01f) return 0.0f;
+
+    float rn = r / sum;
+    float gn = g / sum;
+    float bn = b / sum;
+
+    // Skin chromaticity: gn sits in a narrow band, rn is red-leading vs bn.
+    // Ramp widths are deliberately wide to match the smoothness of the
+    // previous HSV-sat approach — narrow ramps make Density slider blotchy.
+    float gn_gate = smoothstep(0.22f, 0.33f, gn) * (1.0f - smoothstep(0.37f, 0.48f, gn));
+    float rb_gate = smoothstep(0.0f, 0.04f, rn - bn);
+    float chroma_gate = gn_gate * rb_gate;
+
+    // Hue gate preserves user-facing Range control (narrows/widens the pie slice)
     float3 hsv = rgb_to_hsv(make_float3(r, g, b));
     float h = hsv.x;
-    float s = hsv.y;
     float v = hsv.z;
-
-    if (s < 1e-6f || v < 1e-6f) return 0.0f;
 
     float width = SKIN_HUE_WIDTH * range;
     float dist = hue_distance(h, SKIN_HUE_CENTER);
     float hue_gate = 1.0f - smoothstep(0.0f, width, dist);
-    float sat_gate = smoothstep(0.08f, 0.35f, s);
 
+    // Value gates (user-facing Low/High Gate sliders)
     float lo_gate = (lo > 0.001f) ? smoothstep(lo * 0.5f, lo, v) : 1.0f;
     float hi_gate = (hi < 0.999f) ? 1.0f - smoothstep(hi - (1.0f - hi) * 0.5f, hi, v) : 1.0f;
 
-    return hue_gate * sat_gate * lo_gate * hi_gate;
+    return hue_gate * chroma_gate * lo_gate * hi_gate;
 }
 
 // ============================================================
@@ -136,22 +152,85 @@ __DEVICE__ float3 soft_squeeze(float3 rgb) {
 }
 
 // ============================================================
+// 5x7 bitmap glyph table
+// Each row returns 5 bits (LSB = rightmost column).
+// Used by chart overlays and the PrimeraSkin Show Mask legend.
+// ============================================================
+
+__DEVICE__ int glyph_row(int ch, int row) {
+    switch (ch) {
+        case '0': return (row==0||row==6)?31:27;
+        case '1': return row==1?14:row==6?31:6;
+        case '2': return (row==0||row==3||row==6)?31:row<3?3:24;
+        case '3': return (row==0||row==3||row==6)?31:3;
+        case '4': return row<=2?27:row==3?31:3;
+        case '5': return (row==0||row==3||row==6)?31:row<3?24:3;
+        case '6': return (row==0||row==3||row==6)?31:row<3?24:27;
+        case '7': return row==0?31:row<=2?3:6;
+        case '8': return (row==0||row==3||row==6)?31:27;
+        case '9': return (row==0||row==3||row==6)?31:row<3?27:3;
+        case 'A': return (row==0||row==3)?31:27;
+        case 'C': return (row==0||row==6)?31:24;
+        case 'D': return (row==0||row==6)?30:27;
+        case 'E': return (row==0||row==3||row==6)?31:24;
+        case 'F': return (row==0||row==3)?31:24;
+        case 'G': return (row==0||row==6)?31:row<=2?24:27;
+        case 'I': return (row==0||row==6)?31:6;
+        case 'K': return row==0?17:row==1?18:row==2?20:row==3?24:row==4?20:row==5?18:17;
+        case 'L': return row==6?31:24;
+        case 'M': return row==0?17:row<=2?27:row==3?21:17;
+        case 'N': return (row==0||row==6)?17:row<=2?25:row==3?21:19;
+        case 'O': return (row==0||row==6)?31:27;
+        case 'R': return (row==0||row==3)?31:row<=2?27:row==4?26:25;
+        case 'S': return (row==0||row==3||row==6)?31:row<3?24:3;
+        case 'T': return row==0?31:6;
+        case 'Y': return row<=1?27:row==2?14:6;
+        case '%': return row==0?25:row==1?26:row==2?2:row==3?4:row==4?8:row==5?19:3;
+        case '=': return (row==2||row==4)?31:0;
+        case '.': return row>=5?12:0;
+        default:  return 0;
+    }
+}
+
+// ============================================================
 // Transform
 // ============================================================
 
 #define COMPRESS_EXTRA 0.4f
 #define LEGEND_STRIP_H 0.075f
 
-__DEVICE__ int legend_glyph_row(int ch, int row) {
-    switch (ch) {
-        case 'C': return (row==0||row==6)?31:24;
-        case 'y': return row<=1?0:row==2?27:row==3?14:row==4?4:row==5?8:(row==6?14:0);
-        case 'S': return (row==0||row==3||row==6)?31:row<3?24:3;
-        case 'k': return row<=1?16:row==2?22:row==3?28:row==4?24:row==5?20:18;
-        case 'M': return row==0?17:row<=2?27:row==3?21:17;
-        case 'g': return row<=1?0:row==2?14:row<=4?27:(row==5?3:14);
-        default:  return 0;
+// Representative skin chromaticity (R-leading, B-trailing). Used as the
+// reference base for legend chip rendering so the strip reflects what the
+// overlay actually produces on real skin rather than on uniform grey.
+#define SKIN_BASE_R 0.55f
+#define SKIN_BASE_G 0.42f
+#define SKIN_BASE_B 0.25f
+
+#define GLYPH_GREY 0.15f
+
+// Continuous mapping from zone position (-1..+1) to chromaticity-shifted RGB.
+// zone=-1: cyan/green side   zone=0: skin centre (gold)   zone=+1: magenta side
+// Used by both the Show Mask overlay (per-pixel) and the Legend strip
+// (gradient across x). Same gains drive both, so the strip is a closed-form
+// rendering of the overlay function applied to a fixed skin base.
+__DEVICE__ float3 zone_color(float zone, float3 base) {
+    if (zone < -1.0f) zone = -1.0f;
+    if (zone > 1.0f) zone = 1.0f;
+
+    float gr, gg, gb;
+    if (zone <= 0.0f) {
+        float t = -zone;
+        gr = 1.4f;
+        gg = 1.3f - t * 0.8f;
+        gb = 0.5f + t * 0.8f;
+    } else {
+        float t = zone;
+        gr = 1.4f - t * 0.9f;
+        gg = 1.3f;
+        gb = 0.5f + t * 0.8f;
     }
+
+    return make_float3(base.x * gr, base.y * gg, base.z * gb);
 }
 
 __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
@@ -185,17 +264,17 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     // --- Main mask (with value gates) ---
     float mask = skin_mask_gated(r, g, b, p_range, p_lo_gate, p_hi_gate);
 
-    // Early exit if nothing to do and not showing mask
-    if (mask < 1e-6f && p_show_mask == 0)
+    // Early exit if nothing to do and no overlays to render
+    if (mask < 1e-6f && p_show_mask == 0 && p_legend == 0)
         return make_float3(r, g, b);
 
     // --- Hue, Saturation, Density adjustments in HSV ---
     if (mask > 1e-6f) {
         float3 hsv = rgb_to_hsv(make_float3(r, g, b));
 
-        // Hue rotation
+        // Hue rotation (slider direction matches legend: left = cyan, right = magenta)
         if (p_hue != 0.0f) {
-            hsv.x += mask * p_hue / 360.0f;
+            hsv.x -= mask * p_hue / 360.0f;
             if (hsv.x < 0.0f) hsv.x += 1.0f;
             if (hsv.x > 1.0f) hsv.x -= 1.0f;
         }
@@ -216,6 +295,80 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         b = adj.z;
     }
 
+    // --- Legend strip at bottom of frame (independent of Show Mask) ---
+    // Resolve DCTL uses top-down pixel coords: p_Y=0 is the top row.
+    // The bottom 7.5% of the frame becomes the strip.
+    if (p_legend == 1) {
+        float y_norm = (float)p_Y / (float)p_Height;
+        if (y_norm >= 1.0f - LEGEND_STRIP_H) {
+            float x_norm = (float)p_X / (float)p_Width;
+
+            // Continuous gradient: x maps linearly to zone in [+1, -1] so the
+            // strip reads left→right as GREEN → SKIN → MAG, matching the
+            // labels and the Hue slider convention (left = green, right = mag).
+            float zone_strip = 1.0f - x_norm * 2.0f;
+            float3 skin_base = make_float3(SKIN_BASE_R, SKIN_BASE_G, SKIN_BASE_B);
+            float3 chip = zone_color(zone_strip, skin_base);
+            float lr = chip.x;
+            float lg = chip.y;
+            float lb = chip.z;
+
+            int cell = p_Height / 100;
+            if (cell < 2) cell = 2;
+            int char_w = 6 * cell;
+            int char_h = 7 * cell;
+
+            int strip_top = (int)((1.0f - LEGEND_STRIP_H) * (float)p_Height);
+            int strip_height = p_Height - strip_top;
+            int block_w = p_Width / 3;
+            int third = (int)(x_norm * 3.0f);
+            if (third > 2) third = 2;
+            int block_left = third * block_w;
+
+            int text_len = (third == 0) ? 5 : 4;   // GREEN | SKIN | MAG.
+            int text_w = text_len * char_w;
+            int text_left = block_left + (block_w - text_w) / 2;
+            int text_top = strip_top + (strip_height - char_h) / 2;
+
+            if (p_Y >= text_top && p_Y < text_top + char_h) {
+                int lx = p_X - text_left;
+                if (lx >= 0 && lx < text_w) {
+                    int ci = lx / char_w;
+                    int cx = (lx % char_w) / cell;
+                    int cy = (p_Y - text_top) / cell;
+                    if (cx < 5) {
+                        int ch = 0;
+                        if (third == 0) {
+                            if (ci == 0) ch = 'G';
+                            else if (ci == 1) ch = 'R';
+                            else if (ci == 2) ch = 'E';
+                            else if (ci == 3) ch = 'E';
+                            else ch = 'N';
+                        } else if (third == 1) {
+                            if (ci == 0) ch = 'S';
+                            else if (ci == 1) ch = 'K';
+                            else if (ci == 2) ch = 'I';
+                            else ch = 'N';
+                        } else {
+                            if (ci == 0) ch = 'M';
+                            else if (ci == 1) ch = 'A';
+                            else if (ci == 2) ch = 'G';
+                            else ch = '.';
+                        }
+
+                        int gmask = glyph_row(ch, cy);
+                        if ((gmask >> (4 - cx)) & 1) {
+                            lr = GLYPH_GREY; lg = GLYPH_GREY; lb = GLYPH_GREY;
+                        }
+                    }
+                }
+            }
+
+            float3 legend_px = make_float3(lr, lg, lb);
+            return legend_px;
+        }
+    }
+
     // --- Show Mask: three-zone false-color overlay ---
     // Zone color from ORIGINAL hues (stable classification);
     // mask strength from ADJUSTED pixels (shows slider effect via intensity)
@@ -232,89 +385,19 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
 
         float width = SKIN_HUE_WIDTH * p_range;
         float zone = (width > 1e-6f) ? hd / width : 0.0f;
-        if (zone < -1.0f) zone = -1.0f;
-        if (zone > 1.0f) zone = 1.0f;
 
-        // Multiplicative chroma: preserves luminance structure, consistent saturation
-        // gold(0): R↑ G↑ B↓   magenta(-1): R↑ G↓ B↑   cyan(+1): R↓ G↑ B↑
-        float gr, gg, gb;
-        if (zone <= 0.0f) {
-            float t = -zone;
-            gr = 1.4f;
-            gg = 1.3f - t * 0.8f;
-            gb = 0.5f + t * 0.8f;
-        } else {
-            float t = zone;
-            gr = 1.4f - t * 0.9f;
-            gg = 1.3f;
-            gb = 0.5f + t * 0.8f;
-        }
+        // Per-pixel zone tint — same closed-form mapping the legend uses.
+        // Base is the pixel's own greyscale (V), so the overlay rides on the
+        // image's local luminance and reads as natural false-colour.
+        float3 grey_base = make_float3(grey, grey, grey);
+        float3 zc = zone_color(zone, grey_base);
 
-        // Apply gain scaled by mask strength (1.0 = no effect when vmask=0)
-        float mr = grey * (1.0f + vmask * (gr - 1.0f));
-        float mg = grey * (1.0f + vmask * (gg - 1.0f));
-        float mb = grey * (1.0f + vmask * (gb - 1.0f));
-
-        // --- Legend strip at bottom of frame ---
-        if (p_legend == 1) {
-            float y_norm = (float)p_Y / (float)p_Height;
-            if (y_norm >= 1.0f - LEGEND_STRIP_H) {
-                float x_norm = (float)p_X / (float)p_Width;
-                int third = (int)(x_norm * 3.0f);
-                if (third > 2) third = 2;
-
-                // Same gains as mask overlay at full strength over legend base grey
-                float base = 0.38f;
-                float lgr, lgg, lgb;
-                if (third == 0) {
-                    lgr = 0.5f; lgg = 1.3f; lgb = 1.3f;
-                } else if (third == 1) {
-                    lgr = 1.4f; lgg = 1.3f; lgb = 0.5f;
-                } else {
-                    lgr = 1.4f; lgg = 0.5f; lgb = 1.3f;
-                }
-
-                float lr = base * lgr;
-                float lg = base * lgg;
-                float lb = base * lgb;
-
-                int cell = p_Height / 100;
-                if (cell < 2) cell = 2;
-                int char_w = 6 * cell;
-                int char_h = 7 * cell;
-
-                int strip_top = (int)((1.0f - LEGEND_STRIP_H) * (float)p_Height);
-                int strip_height = p_Height - strip_top;
-                int block_w = p_Width / 3;
-                int block_left = third * block_w;
-
-                int text_w = 2 * char_w;
-                int text_left = block_left + (block_w - text_w) / 2;
-                int text_top = strip_top + (strip_height - char_h) / 2;
-
-                if (p_Y >= text_top && p_Y < text_top + char_h) {
-                    int lx = p_X - text_left;
-                    if (lx >= 0 && lx < text_w) {
-                        int ci = lx / char_w;
-                        int cx = (lx % char_w) / cell;
-                        int cy = (p_Y - text_top) / cell;
-                        if (cx < 5) {
-                            int ch = 0;
-                            if (third == 0) { ch = ci == 0 ? 'C' : 'y'; }
-                            else if (third == 1) { ch = ci == 0 ? 'S' : 'k'; }
-                            else { ch = ci == 0 ? 'M' : 'g'; }
-
-                            int gmask = legend_glyph_row(ch, cy);
-                            if ((gmask >> (4 - cx)) & 1) {
-                                lr = 0.75f; lg = 0.75f; lb = 0.75f;
-                            }
-                        }
-                    }
-                }
-
-                return make_float3(lr, lg, lb);
-            }
-        }
+        // Square vmask for display: compresses marginal matches toward grey,
+        // keeping peak-skin pixels brightly saturated for clearer visual feedback.
+        float vd = vmask * vmask;
+        float mr = grey + vd * (zc.x - grey);
+        float mg = grey + vd * (zc.y - grey);
+        float mb = grey + vd * (zc.z - grey);
 
         return make_float3(mr, mg, mb);
     }

@@ -4,10 +4,11 @@ FRAG    := $(SRC)/frag
 TOOLS   := Primera PrimeraHue PrimeraSkin PrimeraSplit
 
 # Fragment ordering per tool
-Primera_FRAGS      := luminance hsv tf_encode tf_decode chart tone
+# Note: glyphs must precede chart (chart's glyph_row calls live in glyphs)
+Primera_FRAGS      := luminance hsv tf_encode tf_decode glyphs chart tone
 PrimeraHue_FRAGS   := luminance hsv skintone tetra soft_squeeze
-PrimeraSkin_FRAGS  := hsv skintone soft_squeeze
-PrimeraSplit_FRAGS := luminance tf_encode chart
+PrimeraSkin_FRAGS  := hsv skintone soft_squeeze glyphs
+PrimeraSplit_FRAGS := luminance tf_encode glyphs chart
 
 LUT_DIR := /Library/Application Support/Blackmagic Design/DaVinci Resolve/LUT
 

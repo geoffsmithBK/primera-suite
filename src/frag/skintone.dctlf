@@ -36,21 +36,37 @@ __DEVICE__ float skin_mask(float r, float g, float b) {
     return skin_mask_range(r, g, b, 1.0f);
 }
 
+// Detection uses rg-chromaticity (normalized RGB ratios) rather than HSV
+// saturation. Ratios are invariant to overall brightness, so the mask catches
+// fair and dark skin equally well. Log-space skin clusters tightly around
+// gn ≈ 0.33 with rn > bn.
 __DEVICE__ float skin_mask_gated(float r, float g, float b, float range, float lo, float hi) {
+    float sum = r + g + b;
+    if (sum < 0.01f) return 0.0f;
+
+    float rn = r / sum;
+    float gn = g / sum;
+    float bn = b / sum;
+
+    // Skin chromaticity: gn sits in a narrow band, rn is red-leading vs bn.
+    // Ramp widths are deliberately wide to match the smoothness of the
+    // previous HSV-sat approach — narrow ramps make Density slider blotchy.
+    float gn_gate = smoothstep(0.22f, 0.33f, gn) * (1.0f - smoothstep(0.37f, 0.48f, gn));
+    float rb_gate = smoothstep(0.0f, 0.04f, rn - bn);
+    float chroma_gate = gn_gate * rb_gate;
+
+    // Hue gate preserves user-facing Range control (narrows/widens the pie slice)
     float3 hsv = rgb_to_hsv(make_float3(r, g, b));
     float h = hsv.x;
-    float s = hsv.y;
     float v = hsv.z;
-
-    if (s < 1e-6f || v < 1e-6f) return 0.0f;
 
     float width = SKIN_HUE_WIDTH * range;
     float dist = hue_distance(h, SKIN_HUE_CENTER);
     float hue_gate = 1.0f - smoothstep(0.0f, width, dist);
-    float sat_gate = smoothstep(0.08f, 0.35f, s);
 
+    // Value gates (user-facing Low/High Gate sliders)
     float lo_gate = (lo > 0.001f) ? smoothstep(lo * 0.5f, lo, v) : 1.0f;
     float hi_gate = (hi < 0.999f) ? 1.0f - smoothstep(hi - (1.0f - hi) * 0.5f, hi, v) : 1.0f;
 
-    return hue_gate * sat_gate * lo_gate * hi_gate;
+    return hue_gate * chroma_gate * lo_gate * hi_gate;
 }

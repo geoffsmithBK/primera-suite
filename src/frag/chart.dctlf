@@ -1,40 +1,8 @@
 
 // ============================================================
-// Stop chart (bitmap font + renderer)
-// Requires: encode()
+// Stop chart (renderer)
+// Requires: encode(), glyph_row()
 // ============================================================
-
-__DEVICE__ int glyph_row(int ch, int row) {
-    switch (ch) {
-        case '0': return (row==0||row==6)?31:27;
-        case '1': return row==1?14:row==6?31:6;
-        case '2': return (row==0||row==3||row==6)?31:row<3?3:24;
-        case '3': return (row==0||row==3||row==6)?31:3;
-        case '4': return row<=2?27:row==3?31:3;
-        case '5': return (row==0||row==3||row==6)?31:row<3?24:3;
-        case '6': return (row==0||row==3||row==6)?31:row<3?24:27;
-        case '7': return row==0?31:row<=2?3:6;
-        case '8': return (row==0||row==3||row==6)?31:27;
-        case '9': return (row==0||row==3||row==6)?31:row<3?27:3;
-        case 'A': return (row==0||row==3)?31:27;
-        case 'C': return (row==0||row==6)?31:24;
-        case 'D': return (row==0||row==6)?30:27;
-        case 'E': return (row==0||row==3||row==6)?31:24;
-        case 'G': return (row==0||row==6)?31:row<=2?24:27;
-        case 'I': return (row==0||row==6)?31:6;
-        case 'L': return row==6?31:24;
-        case 'N': return row==0||row==6?17:row<=2?25:row==3?21:19;
-        case 'R': return (row==0||row==3)?31:row<=2?27:row==4?26:25;
-        case '%': return row==0?25:row==1?26:row==2?2:row==3?4:row==4?8:row==5?19:3;
-        case 'F': return (row==0||row==3)?31:24;
-        case 'O': return (row==0||row==6)?31:27;
-        case 'T': return row==0?31:6;
-        case 'Y': return row<=1?27:row==2?14:6;
-        case '=': return (row==2||row==4)?31:0;
-        case '.': return row>=5?12:0;
-        default:  return 0;
-    }
-}
 
 __DEVICE__ int tf_name_char(int tf, int pos) {
     switch (tf) {

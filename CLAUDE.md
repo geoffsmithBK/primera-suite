@@ -32,10 +32,10 @@ make clean        # Remove both output dirs
 ### Fragment dependency map
 
 ```
-Primera:      header + luminance + hsv + tf_encode + tf_decode + chart + tone + body
+Primera:      header + luminance + hsv + tf_encode + tf_decode + glyphs + chart + tone + body
 PrimeraHue:   header + luminance + hsv + skintone + tetra + soft_squeeze + body
-PrimeraSkin:   header + hsv + skintone + soft_squeeze + body
-PrimeraSplit:  header + luminance + tf_encode + chart + body
+PrimeraSkin:  header + hsv + skintone + soft_squeeze + glyphs + body
+PrimeraSplit: header + luminance + tf_encode + glyphs + chart + body
 ```
 
 ## DCTL Constraints (Resolve / Metal)
