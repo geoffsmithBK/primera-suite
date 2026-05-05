@@ -361,7 +361,7 @@
       line-height: 1.6;
     }
 
-    .notes-list a, .tool-desc a, .intro a, .feature-list a {
+    .notes-list a, .tool-desc a, .intro a, .feature-list a, .tagline a {
       color: var(--accent);
       text-decoration: none;
       border-bottom: 1px solid var(--accent-dim);
@@ -474,12 +474,13 @@
         <p class="eyebrow">DaVinci Resolve Studio · DCTL Suite</p>
         <h1>Primera Suite</h1>
         <p class="tagline">
-          A <a href="https://www.linkedin.com/in/geoffsm"
-        target="_blank" rel="noopener" style="color:
-        var(--text-dimmer); text-decoration: none;">personal</a> suite
-        of open source color grading DCTLs (DaVinci Resolve Studio
-        required) for primary balancing and some aspects of look
-        development.
+          An <a href="https://www.linkedin.com/in/geoffsm"
+        target="_blank" rel="noopener"; text-decoration:
+        none;">opinionated</a> suite of open source color grading
+        DCTLs for primary balancing and some aspects of look
+        development. Studio version of DaVinci Resolve required;
+        tested in Resolve Studio 20.x and 21 beta 2 (may work in other
+        versions).
         </p>
         <div class="cta-row">
           <a class="btn-download" href="https://github.com/geoffsmithBK/primera-suite/releases/latest/download/Primera.zip">
@@ -522,21 +523,21 @@
       <p>
         My personal aesthetic lodestar remains a <em>film-like
         look</em>, in the broad sense, however not by emulating any
-        specific stock or process (with one sort-of exception) and in
-        any case the tools should be flexible enough to achieve a
-        broad range of looks.
+        specific stock or process (with one sort-of exception; see
+        below). In any case the tools should be flexible enough to
+        achieve a broad range of looks.
       </p>
       <p>
         The DCTLs are meant to be used in the context of
-        a <a href="https://www.youtube.com/watch?v=JpRuQQ__-YA"
+        a <a href="https://www.youtube.com/watch?v=AAeZKZ5feGA"
         target="_blank" rel="noopener">fully color-managed
-        workflow</a>.  They&#39;ve been used and tested most
+        workflow</a>. They&#39;ve been used and tested most
         against <a href="https://github.com/jedypod/open-display-transform"
         target="_blank" rel="noopener">OpenDRT</a>, but play well with
         Resolve&#39;s
         CST, <a href="https://github.com/JuanPabloZambrano/DCTL/tree/main/2499_DRT"
-        target="_blank" rel="noopener">2499 DRT</a>, ACES 2.0, and
-        correctly-constructed 3D LUTs.
+        target="_blank" rel="noopener">2499 DRT</a>, <a href="https://docs.acescentral.com/background/about-aces-2/" target="_blank" rel="noopener">ACES 2.0</a>, and
+        well-constructed 3D LUTs.
       </p>
     </section>
   </div>
@@ -559,7 +560,7 @@
           loading="lazy"
         >
         <p class="tool-desc">
-          The foundation. Provides primary grading controls for shot-to-shot balancing across the range of source and working space encodings I encounter most often: ARRI LogC3 and LogC4, Sony S-Log3, REDLog3G10, ACEScct, DaVinci Intermediate, and Kodak Cineon.
+          The foundation. Provides primary grading controls for shot-to-shot balancing across the range of source and working space encodings I encounter most often: ARRI LogC3 and LogC4, Sony S-Log3, REDLog3G10, ACEScct, DaVinci Intermediate, Kodak Cineon, Fuji F-Log2/C, and Panasonic V-Log.
         </p>
         <ul class="feature-list">
           <li><span><strong>Exposure Stops</strong> — Linear gain in
@@ -624,10 +625,10 @@
           forgotten
           "budget" <a href="https://www.youtube.com/watch?v=dnNeKxt0urk"
           target="_blank" rel="noopener">two-strip color process</a>
-          in use from about the late 1930s to the early 1950s. Similar
-          to Technicolor Process 2, Cinecolor used bi-packed ortho
-          negatives and duplitized print stock (emulsion on both sides
-          of the base) and now it&#39;s here for you in 2026 only without the
+          in use from the late 1930s to the early 1950s. Conceptually
+          similar to Technicolor Process 2, Cinecolor used bi-packed
+          ortho negatives and duplitized print stock (emulsion on both
+          sides of the base). Here for you now in 2026 without the
           registration nightmares</span></li>
           <li><span><strong>Protect Skintones</strong> — Applies only
           to Cinecolor; creates a holdout matte centered on ~28° HSV
@@ -704,12 +705,12 @@
           gates excluding dark or bright pixels from the
           mask</span></li>
           <li><span><strong>Show Mask</strong> — Three-zone
-          false-color overlay shows the "skin zone" in yellow/gold
-          while magenta denotes the pixels fall outside of the skin
+          false-color overlay shows the "skin zone" in yellow/gold;
+          magenta denotes pixels outside of the skin
           vector in the clockwise direction and green too far
-          counter-clockwise. Usable with most trasnfer functions but
-          best observed in Log space.</span></li>
-	  <li><span><strong>Legend</strong> — shows a key for three zones in
+          counter-clockwise. Usable with most transfer functions but
+          best observed in a Log encoding.</span></li>
+	  <li><span><strong>Legend</strong> — displays a key for the three zones in
           a gradient strip across the bottom of the viewer</span></li>
         </ul>
       </section>
@@ -735,12 +736,12 @@
         <li>
           <span>These tools are designed to be used in the context of a fully <strong>color-managed
           workflow</strong>.
-          See <a href="https://www.youtube.com/watch?v=JpRuQQ__-YA"
+          See <a href="https://www.youtube.com/watch?v=AAeZKZ5feGA"
           target="_blank" rel="noopener">here</a> for a primer if
           you&#39;re unfamiliar with this approach.</span>
         </li>
         <li>
-          <span>It is possible to produce negative or otherwise
+          <span>Note that it is possible to produce negative or otherwise
           out-of-range values despite the guardrails/containment in
           place. I usually reach for gamut compression first if this
           happens but if something&#39;s obviously broken,
@@ -752,8 +753,8 @@
           <a href="https://store.kaurh.com" target="_blank"
           rel="noopener">Kaur Hendriksen's free standalone DCTL</a>
           implements ACES 2.0 gamut compression coefficients and is
-          heartily recommended. Resolve's ACES Transform or CST also
-          (usually) work.
+          heartily recommended (Resolve's ACES Transform OFX uses the
+          same values). The Resolve CST's saturation compression also (usually) works.
           </span>
         </li>
       </ul>
@@ -765,10 +766,10 @@
     <section class="credits reveal">
       <h3>Inspiration &amp; Prior Art</h3>
       <p style="color: var(--text-dim); font-size: 0.9375rem; margin-bottom: 0.5rem; max-width: 64ch;">
-        There's not much particularly new/original in the Primera
+        There's not much particularly new or original in the Primera
         tools. They&#39;re a curated, opinionated collection of my
         favorite approaches to primary grading. 90%+ of Primera's
-        existence is owed to the work of:
+        existence is owed to the work, and generosity, of:
       </p>
       <div class="credits-grid">
         <a href="https://github.com/jedypod" target="_blank"
