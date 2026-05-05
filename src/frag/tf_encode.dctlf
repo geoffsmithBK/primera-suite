@@ -71,6 +71,14 @@ __DEVICE__ float lin_to_flog2(float x) {
     return (x >= cut1) ? c * _log10f(a * x + b) + d : e * x + f;
 }
 
+__DEVICE__ float lin_to_vlog(float x) {
+    const float b = 0.00873f;
+    const float c = 0.241514f;
+    const float d = 0.598206f;
+    const float cut1 = 0.01f;
+    return (x < cut1) ? 5.6f * x + 0.125f : c * _log10f(x + b) + d;
+}
+
 __DEVICE__ float encode(float x, int tf) {
     switch (tf) {
         case 0: return lin_to_logc3(x);
@@ -81,6 +89,7 @@ __DEVICE__ float encode(float x, int tf) {
         case 5: return lin_to_di(x);
         case 6: return lin_to_cineon(x);
         case 7: return lin_to_flog2(x);
+        case 8: return lin_to_vlog(x);
         default: return x;
     }
 }

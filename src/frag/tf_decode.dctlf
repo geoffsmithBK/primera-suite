@@ -71,6 +71,14 @@ __DEVICE__ float flog2_to_lin(float x) {
     return (x >= cut2) ? (_powf(10.0f, (x - d) / c) / a) - (b / a) : (x - f) / e;
 }
 
+__DEVICE__ float vlog_to_lin(float x) {
+    const float b = 0.00873f;
+    const float c = 0.241514f;
+    const float d = 0.598206f;
+    const float cut2 = 0.181f;
+    return (x < cut2) ? (x - 0.125f) / 5.6f : _powf(10.0f, (x - d) / c) - b;
+}
+
 __DEVICE__ float decode(float x, int tf) {
     switch (tf) {
         case 0: return logc3_to_lin(x);
@@ -81,6 +89,7 @@ __DEVICE__ float decode(float x, int tf) {
         case 5: return di_to_lin(x);
         case 6: return cineon_to_lin(x);
         case 7: return flog2_to_lin(x);
+        case 8: return vlog_to_lin(x);
         default: return x;
     }
 }

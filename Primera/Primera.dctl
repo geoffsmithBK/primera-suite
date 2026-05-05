@@ -1,11 +1,11 @@
-// Primera v0.5.0
+// Primera v0.5.5
 // https://github.com/gsmith/Primera-DCTL
 
 // ============================================================
 // UI Parameters
 // ===============================================================
 
-DEFINE_UI_PARAMS(p_tf, Transfer Function, DCTLUI_COMBO_BOX, 0, {TF_LOGC3, TF_LOGC4, TF_REDLOG3G10, TF_SLOG3, TF_ACESCCT, TF_DI, TF_CINEON, TF_FLOG2}, {ARRI LogC3, ARRI LogC4, REDLog3G10, Sony S-Log3, ACEScct, DaVinci Intermediate, Cineon, F-Log2})
+DEFINE_UI_PARAMS(p_tf, Transfer Function, DCTLUI_COMBO_BOX, 0, {TF_LOGC3, TF_LOGC4, TF_REDLOG3G10, TF_SLOG3, TF_ACESCCT, TF_DI, TF_CINEON, TF_FLOG2, TF_VLOG}, {ARRI LogC3, ARRI LogC4, REDLog3G10, Sony S-Log3, ACEScct, DaVinci Intermediate, Cineon, F-Log2, Panasonic V-Log})
 DEFINE_UI_PARAMS(p_exposure, Exposure Stops, DCTLUI_SLIDER_FLOAT, 0.0, -6.0, 6.0, 0.001)
 DEFINE_UI_PARAMS(p_bp, Black Point, DCTLUI_SLIDER_FLOAT, 0.0, -0.05, 0.05, 0.0001)
 DEFINE_UI_PARAMS(p_temp, Temp, DCTLUI_SLIDER_FLOAT, 0.0, -1.0, 1.0, 0.001)
@@ -146,6 +146,14 @@ __DEVICE__ float lin_to_flog2(float x) {
     return (x >= cut1) ? c * _log10f(a * x + b) + d : e * x + f;
 }
 
+__DEVICE__ float lin_to_vlog(float x) {
+    const float b = 0.00873f;
+    const float c = 0.241514f;
+    const float d = 0.598206f;
+    const float cut1 = 0.01f;
+    return (x < cut1) ? 5.6f * x + 0.125f : c * _log10f(x + b) + d;
+}
+
 __DEVICE__ float encode(float x, int tf) {
     switch (tf) {
         case 0: return lin_to_logc3(x);
@@ -156,6 +164,7 @@ __DEVICE__ float encode(float x, int tf) {
         case 5: return lin_to_di(x);
         case 6: return lin_to_cineon(x);
         case 7: return lin_to_flog2(x);
+        case 8: return lin_to_vlog(x);
         default: return x;
     }
 }// ============================================================
@@ -231,6 +240,14 @@ __DEVICE__ float flog2_to_lin(float x) {
     return (x >= cut2) ? (_powf(10.0f, (x - d) / c) / a) - (b / a) : (x - f) / e;
 }
 
+__DEVICE__ float vlog_to_lin(float x) {
+    const float b = 0.00873f;
+    const float c = 0.241514f;
+    const float d = 0.598206f;
+    const float cut2 = 0.181f;
+    return (x < cut2) ? (x - 0.125f) / 5.6f : _powf(10.0f, (x - d) / c) - b;
+}
+
 __DEVICE__ float decode(float x, int tf) {
     switch (tf) {
         case 0: return logc3_to_lin(x);
@@ -241,6 +258,7 @@ __DEVICE__ float decode(float x, int tf) {
         case 5: return di_to_lin(x);
         case 6: return cineon_to_lin(x);
         case 7: return flog2_to_lin(x);
+        case 8: return vlog_to_lin(x);
         default: return x;
     }
 }

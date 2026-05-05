@@ -65,7 +65,7 @@ These are hard-won lessons from debugging Resolve's DCTL compiler on macOS Metal
 - **Cinecolor**: 2-strip Technicolor via tetra interpolation — blends B toward G: `B_out = (1-t)*B + t*G`
 - **Skintone mask**: HSV-based soft mask (hue gate 28° center, 28° width × saturation smoothstep 0.1→0.25). Used as protection in PrimeraHue and as a chroma weight in PrimeraSkin's Saturation slider
 - **Soft squeeze**: tanh shoulder at 0.9 + exponential toe at 0.1 for gamut containment
-- **Transfer functions**: LogC3, LogC4, REDLog3G10, S-Log3, ACEScct, DaVinci Intermediate, Cineon, F-Log2
+- **Transfer functions**: LogC3, LogC4, REDLog3G10, S-Log3, ACEScct, DaVinci Intermediate, Cineon, F-Log2, V-Log
 
 ## Vercel Landing Page
 
