@@ -147,8 +147,8 @@ __DEVICE__ float pool_skin_mask(__TEXTURE__ p_TexR, __TEXTURE__ p_TexG, __TEXTUR
     return msum / wsum;
 }
 
-__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y,
-                            __TEXTURE__ p_TexR, __TEXTURE__ p_TexG, __TEXTURE__ p_TexB) {
+// Resolve's parser requires the transform() signature on a single line.
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, __TEXTURE__ p_TexR, __TEXTURE__ p_TexG, __TEXTURE__ p_TexB) {
 
     // Center pixel sampled once. These replace the old p_R/p_G/p_B working set.
     float p_R = _tex2D(p_TexR, p_X, p_Y);
