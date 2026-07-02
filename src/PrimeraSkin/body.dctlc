@@ -40,12 +40,130 @@ __DEVICE__ float3 zone_color(float zone, float3 base) {
     return make_float3(base.x * gr, base.y * gg, base.z * gb);
 }
 
-__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p_R, float p_G, float p_B) {
+// ------------------------------------------------------------
+// Spatial mask pooling (Soften)
+// ------------------------------------------------------------
+// The per-pixel chromaticity mask (skin_mask_gated) is a pure function of one
+// pixel's RGB, so sensor grain dithers borderline skin pixels across the gate
+// edges — leaving a stochastic "salt" of under-adjusted pixels inside solid
+// skin (the Density slider's pointillist look). The fix is spatial: pool the
+// mask over a sparse neighbourhood with a loose bilateral (chroma-similarity)
+// weight, then SOFT-UNION the pooled value with the pixel's own mask so pooling
+// only FILLS holes and never erodes confident edges.
+//
+// This helper lives here (not in skintone.dctlf) because that fragment is
+// shared with PrimeraHue, which keeps the scalar transform signature and must
+// not gain texture dependencies.
+
+// Sparse tap pattern: centre + 3 concentric rings (8/12/16 taps) at r/3, 2r/3,
+// r. Ring angles are golden-angle staggered (137.5°) so taps never line up on
+// image axes (avoids axis-aligned banding). cos/sin computed per tap in fixed
+// loops — fixed-bound, so acceptable in DCTL.
+#define POOL_GOLDEN 2.39996323f   // golden angle in radians (~137.5°)
+
+__DEVICE__ float pool_skin_mask(__TEXTURE__ p_TexR, __TEXTURE__ p_TexG, __TEXTURE__ p_TexB,
+                                int p_Width, int p_Height, int p_X, int p_Y,
+                                float r_c, float g_c, float b_c,
+                                float m_own, float radius_px,
+                                float range, float lo, float hi) {
+    // Centre chroma reference in rg-chromaticity space.
+    float sum_c = r_c + g_c + b_c;
+    float gn_c, dn_c;
+    int center_valid = 0;
+    if (sum_c >= 0.01f) {
+        gn_c = g_c / sum_c;
+        dn_c = (r_c - b_c) / sum_c;   // rn - bn
+        center_valid = 1;
+    } else {
+        gn_c = 0.0f;
+        dn_c = 0.0f;
+    }
+
+    const float sigma_s = radius_px * 0.5f;          // spatial Gaussian sigma
+    const float inv2ss = 1.0f / (2.0f * sigma_s * sigma_s);
+    const float sigma_c = 0.06f;                     // chroma-similarity sigma
+    const float inv2sc = 1.0f / (2.0f * sigma_c * sigma_c);
+
+    // Accumulate centre tap first.
+    float wsum = 1.0f;          // centre spatial gaussian = exp(0) = 1
+    float msum = m_own;         // centre similarity = 1, mask = m_own
+
+    // Ring configuration: radii fractions and tap counts.
+    const int   ring_counts[3] = { 8, 12, 16 };
+    const float ring_fracs[3]  = { 0.3333333f, 0.6666667f, 1.0f };
+    // Per-ring starting phase, staggered by the golden angle so rings don't
+    // share spoke directions.
+    float phase = 0.0f;
+
+    for (int ri = 0; ri < 3; ++ri) {
+        int   n  = ring_counts[ri];
+        float rr = radius_px * ring_fracs[ri];
+        float dist2 = rr * rr;
+        float w_spatial = _expf(-dist2 * inv2ss);
+        float dtheta = 6.2831853f / (float)n;   // 2*pi / n
+
+        for (int ti = 0; ti < 16; ++ti) {       // fixed upper bound (max ring)
+            if (ti >= n) break;
+            float theta = phase + dtheta * (float)ti;
+            float ox = _cosf(theta) * rr;
+            float oy = _sinf(theta) * rr;
+
+            int sx = (int)(p_X + ox + 0.5f);
+            int sy = (int)(p_Y + oy + 0.5f);
+            if (sx < 0) sx = 0;
+            if (sx > p_Width - 1) sx = p_Width - 1;
+            if (sy < 0) sy = 0;
+            if (sy > p_Height - 1) sy = p_Height - 1;
+
+            float tr = _tex2D(p_TexR, sx, sy);
+            float tg = _tex2D(p_TexG, sx, sy);
+            float tb = _tex2D(p_TexB, sx, sy);
+
+            float tsum = tr + tg + tb;
+            float w_sim;
+            float m_tap;
+            if (tsum < 0.01f || center_valid == 0) {
+                // Degenerate tap (or degenerate centre): treat as zero.
+                w_sim = 0.0f;
+                m_tap = 0.0f;
+            } else {
+                float gn_t = tg / tsum;
+                float dn_t = (tr - tb) / tsum;
+                float dgn = gn_t - gn_c;
+                float ddn = dn_t - dn_c;
+                w_sim = _expf(-(dgn * dgn + ddn * ddn) * inv2sc);
+                m_tap = skin_mask_gated(tr, tg, tb, range, lo, hi);
+            }
+
+            float w = w_spatial * w_sim;
+            wsum += w;
+            msum += w * m_tap;
+        }
+
+        phase += POOL_GOLDEN;
+    }
+
+    // wsum >= 1 always (centre tap has weight 1), so no zero-divide guard needed.
+    return msum / wsum;
+}
+
+__DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y,
+                            __TEXTURE__ p_TexR, __TEXTURE__ p_TexG, __TEXTURE__ p_TexB) {
+
+    // Center pixel sampled once. These replace the old p_R/p_G/p_B working set.
+    float p_R = _tex2D(p_TexR, p_X, p_Y);
+    float p_G = _tex2D(p_TexG, p_X, p_Y);
+    float p_B = _tex2D(p_TexB, p_X, p_Y);
+
+    // Stable originals for Show Mask zone classification (must survive edits).
+    float orig_r = p_R, orig_g = p_G, orig_b = p_B;
 
     float r = p_R, g = p_G, b = p_B;
 
     // --- Evenness: hue compression toward skin center ---
-    // Uses a broader mask than other adjustments to catch outlier hues
+    // Uses a broader mask than other adjustments to catch outlier hues.
+    // Deliberately UNPOOLED: Evenness is hue compression, not the source of the
+    // Density graininess complaint, and pooling it would double the tap cost.
     if (p_evenness > 0.0f) {
         float cmask = skin_mask_gated(r, g, b, p_range + COMPRESS_EXTRA, p_lo_gate, p_hi_gate);
 
@@ -69,9 +187,28 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     }
 
     // --- Main mask (with value gates) ---
-    float mask = skin_mask_gated(r, g, b, p_range, p_lo_gate, p_hi_gate);
+    // Own (per-pixel) mask, computed on the (possibly Evenness-edited) pixel.
+    float m_own = skin_mask_gated(r, g, b, p_range, p_lo_gate, p_hi_gate);
+    float mask = m_own;
 
-    // Early exit if nothing to do and no overlays to render
+    // --- Spatial pooling (Soften) ---
+    // When Soften == 0 we skip pooling entirely: no taps, behaviour is
+    // bit-identical to the per-pixel tool. The pooled value is soft-UNIONed
+    // with the own mask so it can only fill holes, never erode edges.
+    // m_pooled stays in scope: Show Mask reuses it rather than re-pooling.
+    float m_pooled = 0.0f;
+    if (p_soften > 0.0f) {
+        float radius_px = p_soften * (float)p_Width * 0.004f;   // ~15px @ UHD
+        m_pooled = pool_skin_mask(p_TexR, p_TexG, p_TexB,
+                                  p_Width, p_Height, p_X, p_Y,
+                                  r, g, b, m_own, radius_px,
+                                  p_range, p_lo_gate, p_hi_gate);
+        mask = 1.0f - (1.0f - m_own) * (1.0f - m_pooled);
+    }
+
+    // Early exit if nothing to do and no overlays to render.
+    // NOTE: this fires on the POOLED mask, so a pixel whose own mask is ~0 but
+    // which receives a nonzero pooled adjustment is NOT skipped.
     if (mask < 1e-6f && p_show_mask == 0 && p_legend == 0)
         return make_float3(r, g, b);
 
@@ -180,12 +317,18 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
     // Zone color from ORIGINAL hues (stable classification);
     // mask strength from ADJUSTED pixels (shows slider effect via intensity)
     if (p_show_mask == 1) {
-        float vmask = skin_mask_gated(r, g, b, p_range, p_lo_gate, p_hi_gate);
+        // vmask mirrors the adjustment path: own mask, soft-unioned with the
+        // pooled mask from the main pass. Taps read the original texture
+        // either way, so re-pooling here would only change the centre chroma
+        // reference — a negligible difference for double the tap cost.
+        // (m_pooled is 0.0 when Soften == 0, making the union a no-op.)
+        float vown = skin_mask_gated(r, g, b, p_range, p_lo_gate, p_hi_gate);
+        float vmask = 1.0f - (1.0f - vown) * (1.0f - m_pooled);
         float3 hsv_adj = rgb_to_hsv(make_float3(r, g, b));
         float grey = hsv_adj.z;
 
         // Zone from original pixel hue — stable regardless of Hue slider
-        float3 hsv_orig = rgb_to_hsv(make_float3(p_R, p_G, p_B));
+        float3 hsv_orig = rgb_to_hsv(make_float3(orig_r, orig_g, orig_b));
         float hd = hsv_orig.x - SKIN_HUE_CENTER;
         if (hd > 0.5f) hd -= 1.0f;
         if (hd < -0.5f) hd += 1.0f;
@@ -209,6 +352,16 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, float p
         return make_float3(mr, mg, mb);
     }
 
-    float3 result = soft_squeeze(make_float3(r, g, b));
+    // Gamut squeeze scaled by mask. The squeeze exists to contain adjustment
+    // overshoot, and adjustment magnitude already scales with mask — so
+    // faintly pooled-in pixels (background within pooling radius of skin)
+    // must not receive the full shoulder/toe, or Soften paints a squeeze halo
+    // around skin against bright/dark backgrounds. Gain of 4 reaches full
+    // squeeze by mask 0.25, keeping core-skin behaviour unchanged.
+    float3 squeezed = soft_squeeze(make_float3(r, g, b));
+    float sq = _fminf(mask * 4.0f, 1.0f);
+    float3 result = make_float3(r + sq * (squeezed.x - r),
+                                g + sq * (squeezed.y - g),
+                                b + sq * (squeezed.z - b));
     return result;
 }
