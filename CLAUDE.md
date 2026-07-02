@@ -8,7 +8,7 @@ A suite of four DaVinci Resolve DCTL color grading tools, built from shared frag
 
 - **Primera** — Primary grading: exposure, black point, temp/tint, contrast, shadows/highlights, roll-off, saturation, chart
 - **PrimeraHue** — Standalone tetrahedral hue/density with Cinecolor (2-strip Technicolor simulation) and skintone protection
-- **PrimeraSkin** — HSV-based skintone sculpting: hue, saturation, density, range, evenness, low/high gate, with soft-squeeze gamut containment
+- **PrimeraSkin** — HSV-based skintone sculpting: hue, saturation, density, range, evenness, low/high gate, with soft-squeeze gamut containment and spatial mask pooling (Soften) to suppress per-pixel mask graininess
 - **PrimeraSplit** — Subtractive split toning with TF-aware mid-grey pivot
 
 ## Build System
@@ -59,12 +59,16 @@ These are hard-won lessons from debugging Resolve's DCTL compiler on macOS Metal
 3. **DEFINE_UI_PARAMS combo boxes can't dynamically update other widgets.**
    Selecting a transfer function can't change an adjacent slider's displayed value. Use offset models (slider defaults to 0.0) with Show Chart for visual verification.
 
+4. **The `transform()` signature must be on a single line.**
+   Resolve pattern-matches the entry-function line; a parameter list split across lines fails with `wrong argument int p_Width ... main DCTL function has wrong arguments`. Applies to both the scalar and `__TEXTURE__` signatures. (Texture signature otherwise verified working on Metal: `_tex2D(tex, x, y)` with integer pixel coords, and `__TEXTURE__` values may be passed to `__DEVICE__` helper functions.)
+
 ## Code Patterns
 
 - **Tetrahedral interpolation**: 6 tetrahedra along RGB cube diagonal. Used in PrimeraHue for hue/density shifts.
 - **Cinecolor**: 2-strip Technicolor via tetra interpolation — blends B toward G: `B_out = (1-t)*B + t*G`
 - **Skintone mask**: HSV-based soft mask (hue gate 28° center, 28° width × saturation smoothstep 0.1→0.25). Used as protection in PrimeraHue and as a chroma weight in PrimeraSkin's Saturation slider
-- **Soft squeeze**: tanh shoulder at 0.9 + exponential toe at 0.1 for gamut containment
+- **Soft squeeze**: tanh shoulder at 0.9 + exponential toe at 0.1 for gamut containment. In PrimeraSkin it is modulated by the skin mask (`min(mask*4, 1)`, full squeeze by mask 0.25) so faintly pooled-in background pixels don't receive a squeeze halo
+- **Spatial mask pooling (Soften)**: PrimeraSkin's `transform()` uses the texture signature so `pool_skin_mask` (defined in `body.dctlc`, NOT shared `skintone.dctlf` — PrimeraHue must stay scalar) can pool `skin_mask_gated` over a sparse 37-tap pattern (centre + golden-angle-staggered rings of 8/12/16 taps at r/3, 2r/3, r), weighted by spatial Gaussian × loose rg-chromaticity bilateral. Pooled value is soft-UNIONed with the pixel's own mask (`1-(1-m_own)*(1-m_pooled)`) — fills holes, never erodes edges. Radius is resolution-independent (`p_soften * width * 0.004`, ~15px @ UHD); at Soften=0 pooling is skipped entirely. Fixes the Density slider's pointillist graininess. Evenness pre-pass stays unpooled (deliberate); Show Mask reuses the main-pass pooled value
 - **Transfer functions**: LogC3, LogC4, REDLog3G10, S-Log3, ACEScct, DaVinci Intermediate, Cineon, F-Log2, V-Log
 
 ## Vercel Landing Page
@@ -77,10 +81,3 @@ A static landing page (`index.html` + `favicon.svg`) lives in the repo root and 
 - **Download button**: links directly to `https://github.com/geoffsmithBK/primera-suite/releases/latest/download/Primera.zip` (evergreen via GitHub's `/releases/latest/download/` pattern)
 - **Version number** (`v0.5.0`) is hardcoded in the version strip and footer — update manually on each release, or automate via a GitHub Actions workflow triggered on `release.published`
 - **Pushing from a worktree**: if `main` is checked out in the primary worktree, use `git push origin <branch>:main` rather than checking out main
-
-## Uncommitted WIP (as of 2026-05-02)
-
-The main worktree (`/Users/gsmith/work/primera-suite`) has unstaged modifications to `src/frag/skintone.dctlf`, `Primera/PrimeraSkin.dctl`, and `Primera/PrimeraHue.dctl` — pending a Resolve test before commit:
-
-1. **Chromaticity-based skin detection** — `skin_mask_gated` replaces the HSV saturation gate with rg-chromaticity ratios (`rn = r/sum`, `gn = g/sum`, `bn = b/sum`). Motivation: HSV saturation collapses on dark/overexposed log pixels; chromaticity is brightness-invariant. Hue gate and Low/High Gate sliders are preserved.
-2. **Hue slider direction fix** (PrimeraSkin only) — flips sign on hue rotation so slider direction matches the Show Mask legend (left = cyan, right = magenta).
