@@ -1,4 +1,4 @@
-// PrimeraSkin v0.5.5
+// PrimeraSkin v0.6.0
 // https://github.com/geoffsmithBK/primera-suite
 
 // ============================================================
@@ -11,6 +11,7 @@ DEFINE_UI_PARAMS(p_density, Density, DCTLUI_SLIDER_FLOAT, 0.0, -0.2, 0.2, 0.001)
 DEFINE_UI_PARAMS(p_range, Range, DCTLUI_SLIDER_FLOAT, 1.0, 0.25, 2.0, 0.01)
 DEFINE_UI_PARAMS(p_soften, Soften, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.01)
 DEFINE_UI_PARAMS(p_evenness, Evenness, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.001)
+DEFINE_UI_PARAMS(p_separation, Separation, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 1.0, 0.001)
 DEFINE_UI_PARAMS(p_lo_gate, Low Gate, DCTLUI_SLIDER_FLOAT, 0.0, 0.0, 0.5, 0.001)
 DEFINE_UI_PARAMS(p_hi_gate, High Gate, DCTLUI_SLIDER_FLOAT, 1.0, 0.5, 1.0, 0.001)
 DEFINE_UI_PARAMS(p_show_mask, Show Mask, DCTLUI_CHECK_BOX, 0)
@@ -209,6 +210,12 @@ __DEVICE__ int glyph_row(int ch, int row) {
 
 #define GLYPH_GREY 0.15f
 
+// Separation (see color-contrast.MD): non-skin hues migrate toward the band
+// opposite the skin vector. The target is derived, not user-facing.
+#define SEP_COMPLEMENT      (SKIN_HUE_CENTER + 0.5f)   // ~208 deg (teal)
+#define SEP_FIELD_GAIN      0.075f   // 27 deg max shift at the 90-deg flanks: ~30% migration cap
+#define SEP_FALLBACK_SOFTEN 0.5f     // MINIMUM pooling strength for the Separation gate
+
 // Continuous mapping from zone position (-1..+1) to chromaticity-shifted RGB.
 // zone=-1: cyan/green side   zone=0: skin centre (gold)   zone=+1: magenta side
 // Used by both the Show Mask overlay (per-pixel) and the Legend strip
@@ -400,10 +407,48 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, __TEXTU
         mask = 1.0f - (1.0f - m_own) * (1.0f - m_pooled);
     }
 
+    // --- Separation gate mask ---
+    // Separation INVERTS the mask, so its gate must come from a POOLED mask
+    // (color-contrast.MD §3): inverting the raw per-pixel mask would not merely
+    // skip grain-dithered borderline skin pixels, it would actively push them
+    // toward teal — cyan freckles, the Density graininess bug weaponized.
+    //
+    // Soften's own radius cannot be trusted to supply that pooling: at
+    // Soften = 0.01 the radius is sub-pixel (~0.15px @ UHD), every ring tap
+    // rounds back onto the centre, and the gate silently degrades to the raw
+    // per-pixel mask — i.e. nudging Soften off zero would WEAKEN the guard.
+    // So the gate always pools at >= SEP_FALLBACK_SOFTEN, and reuses the main
+    // pooled mask only once Soften has met that floor.
+    //
+    // Computed HERE, before the HSV adjustments, so the pool's centre chroma
+    // reference is the same untouched pixel its taps read out of the texture.
+    // `mask` is never overwritten, so Separation cannot perturb the skin-side
+    // adjustments in either direction.
+    float sep_mask = mask;
+    if (p_separation > 0.0f && p_soften < SEP_FALLBACK_SOFTEN) {
+        float sep_radius = SEP_FALLBACK_SOFTEN * (float)p_Width * 0.004f;
+        float m_sep = pool_skin_mask(p_TexR, p_TexG, p_TexB,
+                                     p_Width, p_Height, p_X, p_Y,
+                                     r, g, b, m_own, sep_radius,
+                                     p_range, p_lo_gate, p_hi_gate);
+        sep_mask = 1.0f - (1.0f - m_own) * (1.0f - m_sep);
+    }
+
     // Early exit if nothing to do and no overlays to render.
     // NOTE: this fires on the POOLED mask, so a pixel whose own mask is ~0 but
-    // which receives a nonzero pooled adjustment is NOT skipped.
-    if (mask < 1e-6f && p_show_mask == 0 && p_legend == 0)
+    // which receives a nonzero pooled adjustment is NOT skipped. Separation
+    // targets exactly the mask≈0 pixels, so it must also hold the exit open.
+    //
+    // PERF: holding it open is not free, and Separation's cost is paid on the
+    // BACKGROUND, not on skin. Soften == 0 normally means "no taps anywhere,
+    // bit-identical to the per-pixel tool"; raising Separation revokes that,
+    // because every background pixel now both misses this early exit and runs
+    // the 36-tap gate pool above (108 texture fetches/px). In the band
+    // 0 < Soften < SEP_FALLBACK_SOFTEN the frame pays for two independent
+    // pools; at Soften >= SEP_FALLBACK_SOFTEN it is back to one. Judge
+    // playback performance in Resolve with Separation at its intended dose —
+    // benchmarking at Separation = 0 measures a different shader.
+    if (mask < 1e-6f && p_separation <= 0.0f && p_show_mask == 0 && p_legend == 0)
         return make_float3(r, g, b);
 
     // --- Hue, Saturation, Density adjustments in HSV ---
@@ -543,7 +588,82 @@ __DEVICE__ float3 transform(int p_Width, int p_Height, int p_X, int p_Y, __TEXTU
         float mg = grey + vd * (zc.y - grey);
         float mb = grey + vd * (zc.z - grey);
 
+        // NOTE: this returns BEFORE Separation, deliberately — the overlay is a
+        // readout of the skin mask, not a preview of the graded result, so it
+        // shows no teal push. The cost is an evaluation blind spot: the
+        // protective moat (color-contrast.MD §3, §8 step 3 — warm wood/beige
+        // within pooling radius of a face getting partially exempted) has no
+        // false-colour representation and can only be judged by eye on the
+        // graded image. If that proves too blind, the honest fix is a separate
+        // Show Separation readout of (1 - sep_mask), not overloading this one
+        // with a second meaning.
         return make_float3(mr, mg, mb);
+    }
+
+    // --- Separation: push non-skin hues toward the skin complement ---
+    // Inverse-mask color contrast (design + hazards: color-contrast.MD).
+    // sep_mask is pooled up top — see the gate comment there for why the
+    // pooling is load-bearing rather than merely convenient.
+    if (p_separation > 0.0f) {
+        float3 hsv = rgb_to_hsv(make_float3(r, g, b));
+
+        // Chroma weight keeps neutrals neutral — the push redistributes
+        // existing color, never invents it. The V ramp re-derives the
+        // deep-black guard: skin_mask_gated returns 0 for sum < 0.01, which
+        // would otherwise invert to a FULL push on near-blacks. sum < 0.01
+        // implies V <= 0.01, so this ramp closes that hole exactly, not
+        // approximately.
+        float w = p_separation * (1.0f - sep_mask)
+                * smoothstep(0.08f, 0.35f, hsv.y)
+                * smoothstep(0.01f, 0.05f, hsv.z);
+
+        if (w > 1e-6f) {
+            // The field is evaluated on the pixel's NATIVE hue, not its
+            // adjusted one. Hue and Evenness rotate masked pixels off 28°, and
+            // the repeller has to stay nailed to real skin: read the adjusted
+            // hue instead and a partially-masked edge pixel drifts out of the
+            // field's null and takes a real push, demoting the doubly-redundant
+            // protection of color-contrast.MD §2 to single. The magnitude is
+            // small — the Hue rotation is itself mask-scaled, so the field
+            // offset and the (1-mask) weight peak at opposite ends and the
+            // product tops out near 2.4° at mask ≈ 0.5, Hue = ±20 — but
+            // anchoring is free, exact, and does not assume the Hue slider
+            // keeps its current ±20 range. For non-skin pixels nothing is
+            // adjusted, so native == current and this is a no-op.
+            float3 hsv_native = rgb_to_hsv(make_float3(orig_r, orig_g, orig_b));
+            float h_field = (hsv_native.y > 1e-6f) ? hsv_native.x : hsv.x;
+
+            // Sinusoidal hue field: stable attractor at the complement,
+            // unstable equilibrium at the skin hue itself (zero push there —
+            // skin is protected by the field even before the mask gate), and
+            // smooth everywhere on the circle, so adjacent hues never tear
+            // apart at a watershed. Note the field is at its MAXIMUM at the
+            // 90° flanks (118° green, 298° magenta); the point of zero push is
+            // the repeller at 28°, which is exactly where naive shortest-path
+            // rotation would tear.
+            float dh = h_field - SEP_COMPLEMENT;
+            if (dh > 0.5f) dh -= 1.0f;
+            if (dh < -0.5f) dh += 1.0f;
+
+            // KNOWN AND UNMITIGATED (color-contrast.MD §4.3): reds sit on the
+            // magenta flank and drift the long way round. Crimson at 355° takes
+            // -14.7° on an unmasked, saturated pixel at Separation = 1, landing
+            // near 340° — the "why is her dress purple" failure, arriving at
+            // roughly half the maximum dose. No protection notch yet, and that
+            // is a decision, not an oversight: a notch flattens the field for
+            // warm practicals and skin-adjacent wood/beige that this effect is
+            // supposed to move. Evaluate on real footage before adding one.
+            hsv.x -= w * SEP_FIELD_GAIN * _sinf(dh * 6.2831853f);
+            if (hsv.x < 0.0f) hsv.x += 1.0f;
+            if (hsv.x > 1.0f) hsv.x -= 1.0f;
+
+            // Pure hue rotation at constant S/V stays in gamut, so this
+            // needs no help from the mask-scaled squeeze below.
+            float3 sep_rgb = hsv_to_rgb(hsv);
+            r = sep_rgb.x;
+            g = sep_rgb.y;
+            b = sep_rgb.z;
+        }
     }
 
     // Gamut squeeze scaled by mask. The squeeze exists to contain adjustment
