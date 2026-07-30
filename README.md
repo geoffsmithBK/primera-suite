@@ -30,7 +30,7 @@ My personal aesthetic lodestar is still a "film look," in the broad sense, but r
 - **Pos. Saturation** — HSV-based saturation boost (gain on the 'S' "channel"), positive only; adds "density"
 - **Preserve Luma** — weighted offset of the darkening effect from both saturation controls
 - **Show Chart** — draws a per-transfer-function step chart graduated in stops a la [Walter Volpatto's example](https://youtu.be/ymr4wyo7GcA?t=3665)
-- **Transfer Function** — for now, only the ones I encounter most in my day-to-day: LogC3, LogC4, REDLog3G10, S-Log3, ACEScct, DaVinci Intermediate, Kodak Cineon, and Fuji F-Log2
+- **Transfer Function** — for now, only the ones I encounter most in my day-to-day: LogC3, LogC4, REDLog3G10, S-Log3, ACEScct, DaVinci Intermediate, Kodak Cineon, Fuji F-Log2, and Panasonic V-Log
 
 
 ### Primera Hue
@@ -43,9 +43,11 @@ My personal aesthetic lodestar is still a "film look," in the broad sense, but r
 
 - **6 Hue sliders** (R/Y/G/C/B/M) — Each pushes a color toward/away from its neighbors via Rodrigues rotation around each corner's achromatic axis. +/-60° per channel covers the full 360°
 - **6 Density sliders** — Makes the shifted color subjectively more "colorful" without adding energy
-- **Preserve Luma** — Scales output to a nominal level before density adjustment. Runs before Cinecolor (see below)
-- **Soft Clamp** — `tanh` in the shoulder + exponential compression in the toe after interpolation to softly limit range excursion
-- **Hard Clamp** — Clips to [0,1] before interpolation; both clamping schemes can be applied at the same time ("all the clamps")
+- **Preserve Luma** — Restores pre-adjustment Rec. 709 luminance by uniform gain. Runs *after* the hue/density interpolation and *before* Cinecolor (see below)
+- **Soft 🗜️** (soft squeeze, on by default) — `tanh` in the shoulder + exponential compression in the toe, applied last, to softly limit range excursion
+- **Hard 🗜️** (hard squeeze) — Clips the *rotated corner values* to [0,1] before interpolation, not the pixel itself; both squeeze schemes can be applied at the same time ("all the clamps")
+
+Note that PrimeraHue passes any pixel with a channel outside [0,1] straight through untouched — tetrahedral interpolation is only defined on the unit cube. Feed it a log signal, not scene-linear.
 - **Cinecolor** — emulates a [budget color process](https://www.youtube.com/watch?v=dnNeKxt0urk) (~late '30s-early '50s), similar to Technicolor Process 2, that used bipacked (contact exposure) ortho negatives and duplitized print stock (emulsion on both sides of the base); here for you now in the 2020s without the registration nightmares
 - **Protect Skintones** — Applies only to Cinecolor. Creates a holdout matte centered on the skintone indicator (~28° on an HSV disc) with smooth falloff
 
@@ -61,6 +63,7 @@ My personal aesthetic lodestar is still a "film look," in the broad sense, but r
 - **Mid-Grey Pivot** — Defaults to the selected transfer function's mid-grey (but should be set purely by eye)
 - **Transition Softness** — self-explanatory
 - **Preserve Luminance** — as in Primera and PrimeraHue
+- **Show Ramp** — overlays a greyscale ramp put through the identical toning pipeline, so you can read the tint applied at every tonal position
 - **Ramp Position** — positions the greyscale ramp vertically (useful when blanking has been applied)
 - **Show Curve** — shows an RGB curves representation of the the current slider states
 - **Show Pivot** — visualizes the position of the pivot point and transition softness
@@ -74,18 +77,22 @@ My personal aesthetic lodestar is still a "film look," in the broad sense, but r
   <img src="img/PrimeraSkin.png">
 </p>
 
-`PrimeraSkin.dctl` is a dedicated skintone sculpting tool operating in HSV. Meant for log-based timelines (any camera's log or log/log-like working spaces like DaVinci Wide Gamut/Intermediate or ACEScct). Targets a "fuzzy pie slice" of the HSV disc centered on the nominal skin tone hue angle (~28°) and applies adjustments within that region. Everything outside the mask passes through untouched.
+`PrimeraSkin.dctl` is a dedicated skintone sculpting tool operating in HSV. Meant for log-based timelines (any camera's log or log/log-like working spaces like DaVinci Wide Gamut/Intermediate or ACEScct). Everything outside the mask passes through untouched.
+
+Detection is **rg-chromaticity**-based rather than a plain hue/saturation slice: the pixel is normalized by `r+g+b`, which makes the ratios invariant to overall brightness, so the mask catches fair and dark skin equally well. Log-space skin clusters tightly around `g/(r+g+b) ≈ 0.33` with red leading blue. A hue gate centered on the nominal skin angle (~28°) rides on top of that to keep **Range** meaningful as a user control — the "fuzzy pie slice," now with a chromaticity gate in front of it.
 
 - **Hue** — Rotates skin hue (+/-20°)
 - **Saturation** — Scales HSV saturation within the mask (gain on the 'S' "channel")
 - **Density** — Adjusts value/brightness (positive = darker)
 - **Range** — Widens or narrows the skin mask (0.25 = tight, 2.0 = broad)
+- **Soften** — Spatial pooling of the mask. The per-pixel mask is a pure function of one pixel's RGB, so sensor grain dithers borderline pixels across the gate edges and leaves a stochastic "salt" of under-adjusted pixels inside otherwise solid skin — the pointillist look Density used to have at higher settings. Soften pools the mask over a sparse 37-tap neighborhood (weighted by distance and chroma similarity) and soft-*unions* the result with the pixel's own mask, so it can only fill holes, never erode a confident edge. Radius is resolution-independent (~15px at UHD at full strength). At 0 no taps are made at all
 - **Evenness** — Compresses hues toward the skin center; meant to emulate HMU evening-out talent skintones on set during shooting
+- **Separation** — *New in v0.6, and the one control here that acts on everything that* isn't *skin.* Inverts the (pooled) skin mask and uses it to gate a gentle hue migration toward the band opposite the skin vector — skin sits at 28°, its complement at ~208°, the cyan/teal band. Formally it's a smooth sinusoidal field on the hue circle with the complement as a stable attractor and the skin hue itself as an unstable equilibrium, so skin-hued pixels get zero push from the field *before* the mask even gates them. This is the mechanism under the teal-and-orange look done with a scalpel instead of a LUT: complementary opposition between warm subject and cool field reads to the eye as depth. The push is chroma-weighted, so it redistributes color that is already there rather than tinting neutrals, and it is capped at ~30% migration (27° max) so you get a band, not a point. Reds are the known casualty — crimson drifts toward magenta well before the slider ceiling
 - **Low Gate / High Gate** — Value-based gates that exclude dark or bright pixels from the mask (useful for protecting shadows and specular highlights)
-- **Show Mask** — Three-zone false-color overlay showing skin qualification: gold = in zone, red = hue too far clockwise, cyan = hue too far counter-clockwise
-- **Legend** — displays color-coded blocks corresponding to each false color zone; 'Gr' (green) = hue too far counterclockwise; 'Sk' (gold) = in the skin zone; 'Rm' (red-magenta) = hue too far clockwise
+- **Show Mask** — False-color overlay of mask qualification, riding on the pixel's own greyscale so it reads naturally. Gold = in the skin zone; green/cyan = hue sits counter-clockwise of skin center; magenta = hue sits clockwise of it. Tint intensity tracks mask strength (squared, so marginal matches fall off toward grey and confident skin stays vivid). Zone classification uses the *original* hue, so it stays stable while you move the Hue slider
+- **Legend** — A continuous gradient strip across the bottom 7.5% of frame, labeled GREEN / SKIN / MAG. left to right, matching both the Show Mask colors and the Hue slider's direction (left = green, right = magenta). It's a closed-form rendering of the same zone function the overlay uses, applied to a fixed representative skin value
 
-Gamut containment is done via the same "soft squeeze" described above (`tanh` in the shoulder/exponential compression in the toe). I don't use this on every shot but it can be handy for "surgical" chroma operations targeting skintones without resorting to spatial tools.
+Gamut containment is done via the same "soft squeeze" described above (`tanh` in the shoulder/exponential compression in the toe), but here it is *scaled by the mask* — pixels only faintly pooled into the mask get a proportionally reduced squeeze, otherwise Soften paints a visible squeeze halo around faces against bright or dark backgrounds. I don't use this on every shot but it can be handy for "surgical" chroma operations targeting skintones without resorting to spatial tools.
 
 
 ### Notes
