@@ -1,6 +1,9 @@
 # Dev build outputs
 0_Primera/
 
+# Release staging (make release; the zip is uploaded to GitHub Releases)
+dist/
+
 # Claude Code
 CLAUDE.md
 
