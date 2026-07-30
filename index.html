@@ -280,6 +280,11 @@
       margin-bottom: 1.5rem;
     }
 
+    /* Trailing note after a feature list needs its own separation */
+    .tool-note {
+      margin-top: 1.5rem;
+    }
+
     /* ── Feature list ── */
     .feature-list {
       list-style: none;
@@ -580,8 +585,8 @@
           <li><span><strong>Roll Off</strong> — <code>tanh</code>
           highlight compression; works
           with <strong>Highlights</strong> to control the shoulder&#39;s curve shape</span></li>
-          <li><span><strong>Neg. Saturation</strong> — Multiplicative negative gain on chroma
-          <li><span><strong>Pos. Saturation</strong> — HSV-based "density" boost
+          <li><span><strong>Neg. Saturation</strong> — Multiplicative negative gain on chroma</span></li>
+          <li><span><strong>Pos. Saturation</strong> — HSV-based "density" boost</span></li>
 	  <li><span><strong>Preserve Luma - Sat</strong> — Both Saturation controls will only darken the image, this option offsets (via positive linear gain) this consequence</span></li>
           <li><span><strong>Show Chart</strong> —
           Per-transfer-function stop-graduated step chart, à la the
@@ -617,9 +622,13 @@
           <li><span><strong>6 Density sliders</strong> — Makes the
           shifted color subjectively more colorful without adding
           energy</span></li>
-          <li><span><strong>Soft / Hard Clamp</strong>
-          — <code>tanh</code> shoulder + exponential toe compression,
-          or hard clip to [0,1]; both can be applied or just
+          <li><span><strong>Preserve Luma</strong> — Restores
+          pre-adjustment luminance by uniform gain, after the
+          interpolation and before Cinecolor</span></li>
+          <li><span><strong>Soft / Hard Squeeze</strong>
+          — <code>tanh</code> shoulder + exponential toe compression
+          applied last, or a hard clip of the rotated corner values
+          to [0,1] before interpolation; both can be applied or just
           one</span></li>
           <li><span><strong>Cinecolor</strong> — Emulates a largely
           forgotten
@@ -634,6 +643,12 @@
           to Cinecolor; creates a holdout matte centered on ~28° HSV
           with smooth falloff</span></li>
         </ul>
+        <p class="tool-desc tool-note">
+          Note that tetrahedral interpolation is only defined on the
+          unit cube, so any pixel with a channel outside [0,1] passes
+          straight through. Feed this one a log signal, not
+          scene-linear.
+        </p>
       </section>
 
       <!-- Primera Split -->
@@ -663,6 +678,10 @@
           zones</span></li>
           <li><span><strong>Preserve Luminance</strong> — As in
           Primera and PrimeraHue</span></li>
+          <li><span><strong>Show Ramp</strong> — Overlays a greyscale
+          ramp put through the identical toning pipeline, so it reads
+          the actual tint at every tonal position rather than a model
+          of it</span></li>
           <li><span><strong>Ramp Position</strong> — Positions the
           greyscale ramp vertically; useful when working under
           blanking</span></li>
@@ -683,12 +702,21 @@
           alt="PrimeraSkin DCTL controls" loading="lazy">
         <p class="tool-desc">
           A dedicated skintone sculpting tool operating in HSV, meant
-          for log-based sources/groups/timelines. Targets a "fuzzy pie
-          slice" of the HSV disc centered on the nominal skin tone hue
-          angle (~28°) and applies adjustments within that region
-          only. Everything outside the mask passes through untouched.
-          Gamut containment via the same <code>tanh</code> /
-          exponential soft squeeze used throughout.
+          for log-based sources/groups/timelines. Everything outside
+          the mask passes through untouched.
+        </p>
+        <p class="tool-desc">
+          Detection works in <strong>rg-chromaticity</strong> rather
+          than a plain hue/saturation slice: normalizing by
+          <code>r+g+b</code> makes the ratios invariant to overall
+          brightness, so one gate catches fair and dark skin equally
+          well instead of tracking lightness. A hue gate centered on
+          the nominal skin angle (~28°) rides on top of that to keep
+          <strong>Range</strong> meaningful — the "fuzzy pie slice,"
+          now with a chromaticity gate in front of it. Gamut
+          containment via the same <code>tanh</code> / exponential
+          soft squeeze used throughout, here scaled by the mask so
+          pooled-in background pixels don&#39;t get a squeeze halo.
         </p>
         <ul class="feature-list">
           <li><span><strong>Hue</strong> — Rotates skin hue (+/−20°)</span></li>
@@ -698,9 +726,37 @@
           value/brightness (positive = darker)</span></li>
           <li><span><strong>Range</strong> — Widens or narrows the
           skin mask (0.25 = tight, 2.0 = broad)</span></li>
+          <li><span><strong>Soften</strong> — Spatial pooling of the
+          mask. The per-pixel mask is a pure function of one pixel&#39;s
+          RGB, so grain dithers borderline pixels across the gate edges
+          and leaves a stochastic "salt" of under-adjusted pixels
+          inside otherwise solid skin — the pointillist look Density
+          used to have when pushed. Soften pools the mask over a sparse
+          37-tap neighborhood weighted by distance and chroma
+          similarity, then soft-<em>unions</em> the result with the
+          pixel&#39;s own mask, so it can only fill holes and never
+          erode a confident edge. Resolution-independent radius; at 0
+          no taps are made at all</span></li>
           <li><span><strong>Evenness</strong> — Compresses hues toward
           the skin center; emulates HMU evening-out talent skintones
           on set</span></li>
+          <li><span><strong>Separation</strong> — New in v0.6, and the
+          one control here that acts on everything that <em>isn&#39;t</em>
+          skin. It inverts the pooled skin mask and uses it to gate a
+          gentle hue migration toward the band opposite the skin vector
+          — skin sits at 28°, its complement at ~208°, the cyan/teal
+          band. Formally it&#39;s a smooth sinusoidal field on the hue
+          circle with the complement as a stable attractor and the skin
+          hue itself as an unstable equilibrium, so skin-hued pixels
+          take zero push from the field <em>before</em> the mask even
+          gates them. The mechanism under the teal-and-orange look, with
+          a scalpel instead of a LUT: complementary opposition between
+          warm subject and cool field reads to the eye as depth. The
+          push is chroma-weighted, so it redistributes color already in
+          the frame rather than tinting neutrals, and it&#39;s capped at
+          ~30% migration — a band, not a point. Reds are the known
+          casualty; crimson drifts toward magenta well before the
+          slider ceiling</span></li>
           <li><span><strong>Low / High Gate</strong> — Value-based
           gates excluding dark or bright pixels from the
           mask</span></li>
