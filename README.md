@@ -5,7 +5,7 @@
 
 ## Primera Suite
 
-Primera is [my](https://www.linkedin.com/in/geoffsm) personal suite of [DaVinci Resolve Studio](https://www.blackmagicdesign.com/products/davinciresolve) color grading DCTLs for both clip-level grading and some aspects of look development. The DCTLs are built via reusable code fragments via `make` (with help from Claude). The latest release of the built DCTLs is always available to download as a zip file, above on the web and in the righthand sidebar on GitHub (Releases).
+Primera is [my](https://www.linkedin.com/in/geoffsm) personal suite of [DaVinci Resolve Studio](https://www.blackmagicdesign.com/products/davinciresolve) color grading DCTLs for both clip-level grading and some aspects of look development. The DCTLs are built via reusable code fragments via `make` (with help from Claude). The latest release of the built DCTLs is always available to download as a zip file (see below or, on GitHub, in the righthand sidebar under Releases).
 
 Most of the underlying math comes from tried-and-tested publicly-available imaging science approaches and from my own extensive use of open-source DCTLs by many generous members of the “color-concerned community" (see at bottom). Primera consolidates the approaches I reach for most often into one place, under one name, and with only the controls I actually use.
 
@@ -39,15 +39,13 @@ My personal aesthetic lodestar remains a "film-like look," in the broad sense, b
   <img src="img/PrimeraHue.png">
 </p>
 
-`PrimeraHue.dctl` performs per-channel hue and density control via tetrahedral interpolation, based on [hotgluebanjo](https://github.com/hotgluebanjo/TetraInterp-DCTL)’s DCTL implementation of the approach described by Steve Yedlin ASC in his [DisplayPrep](https://www.yedlin.net/DisplayPrepDemo/index.html) demo (2018)
+`PrimeraHue.dctl` performs per-channel hue and density control via tetrahedral interpolation, based on [hotgluebanjo](https://github.com/hotgluebanjo/TetraInterp-DCTL)’s DCTL implementation of the approach described by Steve Yedlin ASC in his [DisplayPrep](https://www.yedlin.net/DisplayPrepDemo/index.html) demo (2018). This tool expects a log source (not scene-linear).
 
 - **6 Hue sliders** (R/Y/G/C/B/M) — Each pushes a color toward/away from its neighbors via Rodrigues rotation around each corner's achromatic axis. +/-60° per channel covers the full 360°
 - **6 Density sliders** — Makes the shifted color subjectively more "colorful" without adding energy
 - **Preserve Luma** — Restores pre-adjustment Rec. 709 luminance by uniform gain. Runs *after* the hue/density interpolation and *before* Cinecolor (see below)
 - **Soft 🗜️** (soft squeeze, on by default) — `tanh` in the shoulder + exponential compression in the toe, applied last, to softly limit range excursion
 - **Hard 🗜️** (hard squeeze) — Clips the *rotated corner values* to [0,1] before interpolation, not the pixel itself; both squeeze schemes can be applied at the same time ("all the clamps")
-
-Note that PrimeraHue passes any pixel with a channel outside [0,1] straight through untouched — tetrahedral interpolation is only defined on the unit cube. Feed it a log signal, not scene-linear.
 - **Cinecolor** — emulates a [budget color process](https://www.youtube.com/watch?v=dnNeKxt0urk) (~late '30s-early '50s), similar to Technicolor Process 2, that used bipacked (contact exposure) ortho negatives and duplitized print stock (emulsion on both sides of the base); here for you now in the 2020s without the registration nightmares
 - **Protect Skintones** — Applies only to Cinecolor. Creates a holdout matte centered on the skintone indicator (~28° on an HSV disc) with smooth falloff
 
@@ -87,7 +85,7 @@ Detection is **rg-chromaticity**-based rather than a plain hue/saturation slice:
 - **Range** — Widens or narrows the skin mask (0.25 = tight, 2.0 = broad)
 - **Soften** — Spatial pooling of the mask. Soften pools the mask over a sparse 37-tap neighborhood (weighted by distance and chroma similarity) and soft-*unions* the result with the pixel's own mask, so it can only fill holes, never erode a confident edge. Radius is resolution-independent (~15px at UHD at full strength). At 0 no taps are made at all. Note that spatial operations cannot be represented in a 3D LUT.
 - **Evenness** — Compresses hues toward the skin center; meant to emulate HMU evening-out talent skintones on set during shooting
-- **Separation** — This control Inverts the (pooled) skin mask, acting on everything that* isn't *skin.*  The inverted mask gates a gentle hue migration toward the band opposite the skin vector — skin sits at 28°, its complement at ~208°, the cyan/teal band. This is the mechanism underlying, conceptually, the teal-and-orange look: complementary opposition between a warm subject and a comparatively cool field. This control attempts to keep neutrals, well, neutral and is capped at ~30% migration (27° max). Pay special attention to reds however, crimson drifts toward magenta well before the slider runs out of travel.
+- **Separation** — This control Inverts the (pooled) skin mask, acting on everything that *isn't* skin. The inverted mask gates a gentle hue migration toward the band opposite the skin vector — skin sits at 28°, its complement at ~208°, the cyan/teal band. This is the mechanism underlying, conceptually, the teal-and-orange look: complementary opposition between a warm subject and a comparatively cool field. This control attempts to keep neutrals, well, neutral and is capped at ~30% migration (27° max). Pay special attention to reds however, crimson drifts toward magenta well before the slider runs out of travel.
 - **Low Gate / High Gate** — Value-based gates that exclude dark or bright pixels from the mask (useful for protecting shadows and specular highlights)
 - **Show Mask** — False-color overlay of mask qualification. Gold = in the skin zone; green/cyan = hue sits counter-clockwise of skin center; magenta = hue sits clockwise of it. Tint intensity tracks mask strength. Zone classification uses the *original* hue, and so tries to stay stable as the Hue slider is moved
 - **Legend** — A continuous gradient strip across the bottom 7.5% of frame, labeled GREEN / SKIN / MAG. left to right, matching both the Show Mask colors and the Hue slider's direction (left = green, right = magenta).
