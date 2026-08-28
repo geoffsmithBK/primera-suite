@@ -15,3 +15,6 @@ known-good/
 
 # Retired experiments
 attic/
+
+# Local-only notes
+SKIN.md
