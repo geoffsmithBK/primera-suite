@@ -5,11 +5,11 @@
 
 ## Primera Suite
 
-Primera is [my](https://www.linkedin.com/in/geoffsm) personal suite of [DaVinci Resolve Studio](https://www.blackmagicdesign.com/products/davinciresolve) color grading DCTLs for both clip-level grading and some aspects of look development. The DCTLs are built via reusable code fragments via `make` (+ plenty of help from Claude). The latest release of the built DCTLs is always available in the sidebar to the right as a .zip file —>
+Primera is [my](https://www.linkedin.com/in/geoffsm) personal suite of [DaVinci Resolve Studio](https://www.blackmagicdesign.com/products/davinciresolve) color grading DCTLs for both clip-level grading and some aspects of look development. The DCTLs are built via reusable code fragments via `make` (+ plenty of help from Claude). The latest release of the built DCTLs is always available in the sidebar to the right as a .zip file under Releases.
 
 Most of the underlying math comes from tried-and-tested publicly-available imaging science approaches and from my own extensive use of open-source DCTLs by many generous members of the “color-concerned community" (see at bottom). Primera consolidates the approaches I reach for most often into one place, under one name, and with only the controls I actually use.
 
-My personal aesthetic lodestar is still a "film look," in the broad sense, but rather than emulating any specific stock or process (with one exception), I’m more chasing my personal past and on-going "sense memories" of seeing and working with film. But hopefully the tools are flexible enough to achieve most any look/style.
+My personal aesthetic lodestar remains a "film-like look," in the broad sense, but rather than emulating any specific stock or process (with one exception), I’m more chasing my personal past and on-going "sense memories" of seeing and working with film. Hopefully the tools are flexible enough to achieve most any look/style.
 
 
 ### Primera
