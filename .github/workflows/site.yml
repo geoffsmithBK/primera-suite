@@ -1,0 +1,45 @@
+name: Build site
+
+# README.md is the single source for index.html's body copy. Editing README
+# anywhere — including the GitHub web editor — regenerates and commits the page.
+#
+# index.html is deliberately NOT in `paths`: this job's own commit touches only
+# index.html, so it cannot retrigger itself.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - site/build_site.py
+      - .github/workflows/site.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-site
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Regenerate index.html from README.md
+        run: make site
+
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "index.html already up to date — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Regenerate index.html from README.md"
+          git push
+          echo "index.html regenerated and pushed; Vercel will redeploy."

@@ -12,7 +12,7 @@ PrimeraSplit_FRAGS := luminance tf_encode glyphs chart
 
 LUT_DIR := /Library/Application Support/Blackmagic Design/DaVinci Resolve/LUT
 
-.PHONY: all dev clean install install-dev release
+.PHONY: all dev clean install install-dev release site
 
 all: OUTDIR := Primera
 all: $(TOOLS) extras
@@ -47,3 +47,13 @@ release: all
 
 clean:
 	rm -rf Primera 0_Primera dist
+
+# ── Landing page ──
+# index.html's body copy is generated from README.md (the single source for
+# all prose). Only the regions between the BEGIN/END GENERATED markers are
+# rewritten; head, CSS, hero chrome, version strip and footer are hand-owned.
+#
+# CI does this automatically on any push to main that touches README.md
+# (.github/workflows/site.yml); run this locally only to preview.
+site:
+	@python3 site/build_site.py
